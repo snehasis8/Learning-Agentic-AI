@@ -4,7 +4,9 @@
   "description": "Agentic AI Engineer Learning - LangChain & LangGraph with Node.js",
   "type": "module",
   "scripts": {
-    "ex": "npx tsx"
+    "ex": "npx tsx",
+    "focus": "node .claude/hooks/focus.mjs",
+    "focus:log": "node .claude/hooks/log-session.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
