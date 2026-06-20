@@ -48,6 +48,12 @@
   .phase { margin-top:14px; }
   .phase h3 { font-size:13px; color:var(--acc); margin:0 0 4px; }
   .here { color:var(--warn); }
+  .proj { margin-top:14px; display:flex; align-items:center; gap:14px; padding:14px 16px;
+          background:linear-gradient(90deg,rgba(124,156,255,.14),rgba(74,222,128,.10));
+          border:1px solid var(--line); border-radius:12px; }
+  .proj .cal { font-size:26px; }
+  .proj .big { font-size:21px; font-weight:700; letter-spacing:.01em; }
+  .proj .meta { color:var(--mut); font-size:12.5px; margin-top:1px; }
   details summary { cursor:pointer; color:var(--mut); }
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(40px);
            background:var(--card2); border:1px solid var(--line); color:var(--fg); padding:10px 16px;
@@ -63,7 +69,14 @@
   <div class="card">
     <div class="stats" id="stats"></div>
     <div class="barwrap"><div class="bar" id="bar" style="width:0"></div></div>
-    <div class="row" style="justify-content:space-between"><span id="progtxt" class="muted"></span><span id="finish" class="muted"></span></div>
+    <div class="row" style="justify-content:space-between"><span id="progtxt" class="muted"></span><span id="here2" class="muted"></span></div>
+    <div class="proj">
+      <span class="cal">🏁</span>
+      <div>
+        <div class="big" id="finishbig">—</div>
+        <div class="meta" id="finishmeta"></div>
+      </div>
+    </div>
     <div style="margin-top:10px" id="here"></div>
   </div>
 
@@ -117,12 +130,20 @@ function render() {
     ['Sessions', l.total],
     ['Recent pace', `${l.recentPace}/wk`],
     ['Modules', `${p.done}/${p.total}`],
-    ['Finish', s.projection.finish],
   ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 
   $('bar').style.width = s.pct + '%';
   $('progtxt').textContent = `${p.done}/${p.total} modules (${s.pct}%)`;
-  $('finish').textContent = `🏁 ${s.projection.finish} · ~${s.projection.weeks} weeks`;
+  $('here2').textContent = '';
+
+  // Estimated completion — recomputed live from current progress + pace on every action
+  const days = daysUntil(s.projection.finish, s.today);
+  $('finishbig').textContent = `Est. completion: ${prettyDate(s.projection.finish)}`;
+  $('finishmeta').textContent =
+    `${days >= 0 ? `${days} days from now` : `${-days} days overdue`}` +
+    ` · ~${s.projection.weeks} weeks left at ${s.projection.sessionsPerWeek} sessions/week` +
+    ` · ${s.pct}% done`;
+
   $('here').innerHTML = (p.here ? `📍 <b>Here:</b> ${esc(p.here)} &nbsp; ` : '') +
     (p.next ? `<span class="here">👉 <b>Next:</b> ${esc(p.next)}</span>` : '');
   if (p.nextId && !$('module').value) $('module').value = p.nextId;
@@ -151,6 +172,14 @@ function revRow(r) {
     <button class="miss" onclick="review('${r.module}','miss')">Miss</button></div>`;
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function prettyDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+function daysUntil(iso, todayIso) {
+  const a = new Date(iso + 'T00:00:00'), b = new Date(todayIso + 'T00:00:00');
+  return Math.round((a - b) / 86400000);
+}
 
 async function logSession() {
   const body = { minutes:$('minutes').value, module:$('module').value.trim(),
