@@ -55,6 +55,14 @@
   .proj .big { font-size:21px; font-weight:700; letter-spacing:.01em; }
   .proj .meta { color:var(--mut); font-size:12.5px; margin-top:1px; }
   details summary { cursor:pointer; color:var(--mut); }
+  .quiz { margin-top:14px; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .qhead { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .qhead .x { margin-left:auto; }
+  .q { font-size:16px; font-weight:600; margin-bottom:10px; }
+  .a { white-space:pre-wrap; background:var(--bg); border:1px solid var(--line); border-radius:8px;
+       padding:10px 12px; color:var(--fg); font-size:14px; max-height:340px; overflow:auto; }
+  .qnav { display:flex; align-items:center; gap:8px; margin-top:12px; }
+  button:disabled { opacity:.4; cursor:default; }
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(40px);
            background:var(--card2); border:1px solid var(--line); color:var(--fg); padding:10px 16px;
            border-radius:10px; opacity:0; transition:.25s; pointer-events:none; }
@@ -96,6 +104,7 @@
   <div class="card">
     <h2>Reviews due <span class="pill" id="revcount">0</span></h2>
     <div id="reviews"></div>
+    <div id="quiz" class="quiz" hidden></div>
     <details style="margin-top:10px"><summary>show all review cards</summary><div id="allreviews"></div></details>
   </div>
 
@@ -168,9 +177,51 @@ function render() {
 function revRow(r) {
   return `<div class="rev"><span class="id">${r.module}</span>
     <span class="file" title="${esc(r.file)}">box ${r.box} · ${esc(r.file)}</span>
+    <button class="ghost" onclick="startQuiz('${r.module}')">▶ Review</button>
     <button class="pass" onclick="review('${r.module}','pass')">Pass</button>
     <button class="miss" onclick="review('${r.module}','miss')">Miss</button></div>`;
 }
+
+// ---- Inline quiz (loads the actual Q&A from the module's *-qa.md) --------
+let QUIZ = null; // { module, file, questions:[{q,a}], idx, revealed }
+async function startQuiz(mod) {
+  const r = await api('/api/questions?module=' + encodeURIComponent(mod));
+  if (!r.ok || !r.questions || !r.questions.length) { toast(r.message || 'No questions found'); return; }
+  QUIZ = { module: mod, file: r.file, questions: r.questions, idx: 0, revealed: false };
+  renderQuiz();
+  $('quiz').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function renderQuiz() {
+  const box = $('quiz');
+  if (!QUIZ) { box.hidden = true; box.innerHTML = ''; return; }
+  const { module, questions, idx, revealed } = QUIZ;
+  const cur = questions[idx];
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="qhead">
+      <b>Reviewing ${esc(module)}</b>
+      <span class="muted">Question ${idx + 1} / ${questions.length}</span>
+      <button class="ghost x" onclick="closeQuiz()">✕ Close</button>
+    </div>
+    <div class="q">${esc(cur.q)}</div>
+    ${revealed
+      ? `<div class="a">${esc(cur.a)}</div>`
+      : `<button class="primary" onclick="revealAnswer()">Show answer</button>`}
+    <div class="qnav">
+      <button class="ghost" ${idx === 0 ? 'disabled' : ''} onclick="stepQuiz(-1)">← Prev</button>
+      <button class="ghost" ${idx === questions.length - 1 ? 'disabled' : ''} onclick="stepQuiz(1)">Next →</button>
+      <span style="flex:1"></span>
+      <button class="pass" onclick="finishQuiz('pass')">✓ Pass (recalled)</button>
+      <button class="miss" onclick="finishQuiz('miss')">✗ Miss</button>
+    </div>`;
+}
+function revealAnswer() { QUIZ.revealed = true; renderQuiz(); }
+function stepQuiz(d) {
+  QUIZ.idx = Math.max(0, Math.min(QUIZ.questions.length - 1, QUIZ.idx + d));
+  QUIZ.revealed = false; renderQuiz();
+}
+function closeQuiz() { QUIZ = null; renderQuiz(); }
+async function finishQuiz(result) { const mod = QUIZ.module; closeQuiz(); await review(mod, result); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function prettyDate(iso) {
   const d = new Date(iso + 'T00:00:00');
