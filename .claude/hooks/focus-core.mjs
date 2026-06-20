@@ -15,15 +15,21 @@ const path = (name) => new URL(name, root);
 const read = (name) => { try { return readFileSync(path(name), 'utf8'); } catch { return ''; } };
 const write = (name, text) => writeFileSync(path(name), text);
 
-// ---- Date helpers -------------------------------------------------------
+// ---- Date helpers (work in the LOCAL calendar day, not UTC) -------------
 const DAY = 86400000;
-export const todayNum = () => Math.floor(Date.now() / DAY);
-export const isoFrom = (num) => new Date(num * DAY).toISOString().slice(0, 10);
-export const todayIso = () => isoFrom(todayNum());
+const pad = (n) => String(n).padStart(2, '0');
+// Integer day-number for a YYYY-MM-DD string (canonical, calendar-based).
 const dayNum = (iso) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso || '').trim());
-  return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY) : NaN;
+  return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY) : NaN;
 };
+export const isoFrom = (num) => new Date(num * DAY).toISOString().slice(0, 10);
+// "Today" is the machine's LOCAL date — so streaks/due-dates match the user's clock.
+export const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+export const todayNum = () => dayNum(todayIso());
 
 // ---- Parsers ------------------------------------------------------------
 export function parseProgress() {
@@ -106,6 +112,30 @@ export function parseReviews() {
     rows.push({ module: m[1], file: m[2].trim(), box: +m[3], last: m[4].trim(), next: m[5], due: dayNum(m[5]) <= today });
   }
   return rows;
+}
+
+// ---- Review questions (parsed from the *-qa.md files) -------------------
+// Q&A files use blocks separated by `---`, each starting with `**Q: ... **`
+// followed by the answer. Returns [{ q, a }] for a given module id.
+function parseQA(text) {
+  const out = [];
+  for (const block of text.split(/^\s*---\s*$/m)) {
+    const m = /\*\*Q:\s*([\s\S]*?)\*\*/.exec(block);
+    if (!m) continue;
+    const q = m[1].trim();
+    let a = block.slice(m.index + m[0].length).replace(/^\s*\n/, '');
+    a = a.replace(/^\s*A:\s*/, '').trim();
+    if (q) out.push({ q, a });
+  }
+  return out;
+}
+
+export function getQuestions(moduleId) {
+  const row = parseReviews().find((r) => r.module === String(moduleId));
+  if (!row) return { ok: false, message: `No review card for module ${moduleId}.`, questions: [] };
+  const text = read(row.file);
+  if (!text) return { ok: false, message: `Could not read ${row.file}.`, questions: [], file: row.file };
+  return { ok: true, module: String(moduleId), file: row.file, questions: parseQA(text) };
 }
 
 // ---- Aggregate state (for dashboard + UI) -------------------------------

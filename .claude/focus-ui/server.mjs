@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import {
-  getState, logSession, recordReview, toggleItem,
+  getState, logSession, recordReview, toggleItem, getQuestions,
 } from '../hooks/focus-core.mjs';
 
 const PORT = Number(process.env.FOCUS_PORT) || 4321;
@@ -37,6 +37,10 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/state') {
       return json(res, 200, getState());
+    }
+    if (req.method === 'GET' && url.pathname === '/api/questions') {
+      const r = getQuestions(url.searchParams.get('module'));
+      return json(res, r.ok ? 200 : 404, r);
     }
     if (req.method === 'POST' && url.pathname === '/api/log') {
       const b = await readBody(req);

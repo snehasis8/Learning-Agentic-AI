@@ -32,7 +32,9 @@ Pick **one** of these and do it every study day. The web UI is the easiest to st
 **Option A — Web UI (recommended for habit-building)**
 1. Run `npm run focus:ui` → the dashboard opens in your browser.
 2. Read **Next up** at the top; study that module.
-3. Click **Pass/Miss** on each review card under "Reviews due".
+3. For each review card under "Reviews due", click **▶ Review** to quiz yourself on the
+   module's actual questions inline (Show answer → step through), then hit **✓ Pass** / **✗ Miss**.
+   (The quick Pass/Miss buttons on the card still work if you don't need the questions.)
 4. Fill **Minutes / Note**, tick "Mark this module done" if you finished it, hit **＋ Log session**.
 5. Leave it open while you work; Ctrl-C in the terminal when done.
 
