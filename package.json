@@ -6,7 +6,8 @@
   "scripts": {
     "ex": "npx tsx",
     "focus": "node .claude/hooks/focus.mjs",
-    "focus:log": "node .claude/hooks/log-session.mjs"
+    "focus:log": "node .claude/hooks/log-session.mjs",
+    "focus:ui": "node .claude/focus-ui/server.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
