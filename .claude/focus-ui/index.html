@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🎯 Agentic AI — Focus</title>
+<style>
+  :root {
+    --bg:#0f1117; --card:#181b24; --card2:#1f2330; --line:#2a2f3d;
+    --fg:#e6e8ee; --mut:#9aa3b2; --acc:#7c9cff; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--fg); }
+  .wrap { max-width:880px; margin:0 auto; padding:24px 18px 60px; }
+  h1 { font-size:22px; margin:0 0 2px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .stats { display:flex; flex-wrap:wrap; gap:14px; }
+  .stat { flex:1 1 120px; background:var(--card2); border-radius:10px; padding:12px 14px; }
+  .stat .k { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .stat .v { font-size:22px; font-weight:600; margin-top:2px; }
+  .barwrap { height:12px; background:var(--card2); border-radius:8px; overflow:hidden; margin:10px 0 4px; }
+  .bar { height:100%; background:linear-gradient(90deg,var(--acc),var(--good)); transition:width .4s; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .muted { color:var(--mut); }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); margin:0 0 12px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:0 0 4px; }
+  input[type=text], input[type=number], textarea {
+    width:100%; background:var(--card2); border:1px solid var(--line); color:var(--fg);
+    border-radius:8px; padding:9px 10px; font:inherit; }
+  textarea { resize:vertical; min-height:38px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field.full { grid-column:1 / -1; }
+  button { cursor:pointer; border:none; border-radius:8px; font:inherit; font-weight:600; padding:9px 14px; }
+  .primary { background:var(--acc); color:#0b1020; }
+  .ghost { background:var(--card2); color:var(--fg); border:1px solid var(--line); }
+  .pass { background:rgba(74,222,128,.15); color:var(--good); border:1px solid rgba(74,222,128,.35); }
+  .miss { background:rgba(248,113,113,.15); color:var(--bad); border:1px solid rgba(248,113,113,.35); }
+  .pill { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--card2); color:var(--mut); }
+  .rev { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .rev:last-child { border-bottom:none; }
+  .rev .id { font-weight:600; min-width:34px; }
+  .rev .file { color:var(--mut); font-size:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .check { display:flex; align-items:center; gap:9px; padding:5px 0; }
+  .check input { width:16px; height:16px; accent-color:var(--acc); }
+  .check.done span { color:var(--mut); text-decoration:line-through; }
+  .phase { margin-top:14px; }
+  .phase h3 { font-size:13px; color:var(--acc); margin:0 0 4px; }
+  .here { color:var(--warn); }
+  details summary { cursor:pointer; color:var(--mut); }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(40px);
+           background:var(--card2); border:1px solid var(--line); color:var(--fg); padding:10px 16px;
+           border-radius:10px; opacity:0; transition:.25s; pointer-events:none; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 Agentic AI — Focus</h1>
+  <div class="sub" id="sub">loading…</div>
+
+  <div class="card">
+    <div class="stats" id="stats"></div>
+    <div class="barwrap"><div class="bar" id="bar" style="width:0"></div></div>
+    <div class="row" style="justify-content:space-between"><span id="progtxt" class="muted"></span><span id="finish" class="muted"></span></div>
+    <div style="margin-top:10px" id="here"></div>
+  </div>
+
+  <div class="card">
+    <h2>Log a session</h2>
+    <div class="grid">
+      <div class="field"><label>Minutes</label><input type="number" id="minutes" value="45" min="1" /></div>
+      <div class="field"><label>Module</label><input type="text" id="module" placeholder="2.3" /></div>
+      <div class="field full"><label>Note</label><textarea id="note" placeholder="what did you work on?"></textarea></div>
+    </div>
+    <div class="row" style="margin-top:12px; justify-content:space-between">
+      <label class="check" style="margin:0"><input type="checkbox" id="markdone" /> <span>Mark this module done</span></label>
+      <button class="primary" onclick="logSession()">＋ Log session</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Reviews due <span class="pill" id="revcount">0</span></h2>
+    <div id="reviews"></div>
+    <details style="margin-top:10px"><summary>show all review cards</summary><div id="allreviews"></div></details>
+  </div>
+
+  <div class="card">
+    <h2>Curriculum</h2>
+    <div id="checklist"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let STATE = null;
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+async function api(path, body) {
+  const res = await fetch(path, body ? { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) } : {});
+  return res.json();
+}
+function apply(state) { STATE = state; render(); }
+
+function render() {
+  const s = STATE; if (!s) return;
+  const p = s.progress, l = s.log;
+  $('sub').textContent = `Today ${s.today} · target ${s.projection.sessionsPerWeek} sessions/week`;
+
+  $('stats').innerHTML = [
+    ['Streak', `${l.streak > 0 ? '🔥' : '🥶'} ${l.streak}d`],
+    ['Sessions', l.total],
+    ['Recent pace', `${l.recentPace}/wk`],
+    ['Modules', `${p.done}/${p.total}`],
+    ['Finish', s.projection.finish],
+  ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  $('bar').style.width = s.pct + '%';
+  $('progtxt').textContent = `${p.done}/${p.total} modules (${s.pct}%)`;
+  $('finish').textContent = `🏁 ${s.projection.finish} · ~${s.projection.weeks} weeks`;
+  $('here').innerHTML = (p.here ? `📍 <b>Here:</b> ${esc(p.here)} &nbsp; ` : '') +
+    (p.next ? `<span class="here">👉 <b>Next:</b> ${esc(p.next)}</span>` : '');
+  if (p.nextId && !$('module').value) $('module').value = p.nextId;
+
+  // reviews due
+  const due = s.reviewsDue;
+  $('revcount').textContent = due.length;
+  $('reviews').innerHTML = due.length ? due.map(revRow).join('')
+    : '<div class="muted">None due — all caught up ✅</div>';
+  $('allreviews').innerHTML = s.reviews.map(r =>
+    `<div class="rev"><span class="id">${r.module}</span><span class="file">box ${r.box} · next ${r.next}</span></div>`).join('');
+
+  // checklist grouped by phase
+  const groups = {};
+  for (const it of p.items) (groups[it.phase] = groups[it.phase] || []).push(it);
+  $('checklist').innerHTML = Object.entries(groups).map(([phase, items]) =>
+    `<div class="phase"><h3>${esc(phase)}</h3>` + items.map(it =>
+      `<label class="check ${it.done ? 'done' : ''}">
+         <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggle(${it.index})" />
+         <span>${esc(it.label)}</span></label>`).join('') + `</div>`).join('');
+}
+function revRow(r) {
+  return `<div class="rev"><span class="id">${r.module}</span>
+    <span class="file" title="${esc(r.file)}">box ${r.box} · ${esc(r.file)}</span>
+    <button class="pass" onclick="review('${r.module}','pass')">Pass</button>
+    <button class="miss" onclick="review('${r.module}','miss')">Miss</button></div>`;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function logSession() {
+  const body = { minutes:$('minutes').value, module:$('module').value.trim(),
+                 note:$('note').value.trim(), done:$('markdone').checked ? $('module').value.trim() : '' };
+  const r = await api('/api/log', body);
+  toast(r.message || 'logged'); $('note').value = ''; $('markdone').checked = false;
+  if (r.state) apply(r.state);
+}
+async function review(mod, result) {
+  const r = await api('/api/review', { module:mod, result });
+  toast(r.message || 'reviewed'); if (r.state) apply(r.state);
+}
+async function toggle(index) {
+  const r = await api('/api/toggle', { index });
+  if (r.state) apply(r.state);
+}
+api('/api/state').then(apply);
+</script>
+</body>
+</html>
