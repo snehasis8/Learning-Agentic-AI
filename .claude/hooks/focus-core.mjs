@@ -120,11 +120,13 @@ export function parseReviews() {
 function parseQA(text) {
   const out = [];
   for (const block of text.split(/^\s*---\s*$/m)) {
-    const m = /\*\*Q:\s*([\s\S]*?)\*\*/.exec(block);
+    // Question can be bold style `**Q: ... **` or heading style `## Q: ...`.
+    let m = /\*\*Q:\s*([\s\S]*?)\*\*/.exec(block);
+    if (!m) m = /^#{1,6}\s*Q:\s*(.+)$/m.exec(block);
     if (!m) continue;
     const q = m[1].trim();
     let a = block.slice(m.index + m[0].length).replace(/^\s*\n/, '');
-    a = a.replace(/^\s*A:\s*/, '').trim();
+    a = a.replace(/^\s*A:\s*/, '').trim(); // drop a leading "A:" label if present
     if (q) out.push({ q, a });
   }
   return out;
