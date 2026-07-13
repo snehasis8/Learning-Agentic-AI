@@ -326,11 +326,11 @@ Answer:`);
 // =============================================================================
 
 async function main() {
-  await vocabularyMismatch();
-  // await generateQueries();
-  // await multiQueryRetrieval();
+  // await vocabularyMismatch();
+  //  await generateQueries();
+  //  await multiQueryRetrieval();
   // await scoreBasedFiltering();
-  // await advancedRagPipeline();
+   await advancedRagPipeline();
 }
 
 main().catch(console.error);
