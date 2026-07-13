@@ -150,9 +150,9 @@ async function temperatureExperiment() {
 // ============================================================
 
 async function main() {
-  // await rawChatCompletion();
+  await rawChatCompletion();
   // await langchainChatCompletion();
-  await temperatureExperiment();
+//  await temperatureExperiment();
 }
 
 main().catch(console.error);

@@ -24,13 +24,19 @@
   - [x] Exercise: Load + split a text file
 - [x] **2.2** Embeddings & Vector Stores
   - [x] Exercise: Embed chunks, similarity search
-- [ ] **2.3** Basic RAG 👉 YOU ARE HERE
-  - [ ] Exercise: Q&A over a document
-- [ ] **2.4** Advanced RAG
-  - [ ] Exercise: Improve RAG with multi-query
-- [ ] **2.5** Conversational Memory
-  - [ ] Exercise: Chatbot with memory
-- [ ] 🏗️ Mini-Project: RAG Chatbot over documents
+- [x] **2.3** Basic RAG
+  - [x] Exercise: Q&A over a document
+- [ ] **2.4** Advanced RAG (multi-query, re-ranking, hybrid, RAGAS) 👉 YOU ARE HERE
+  - [ ] Exercise: Improve RAG with multi-query + measure with RAGAS
+- [ ] **2.4b** Elasticsearch as Vector Store (production — HNSW kNN, BM25, RRF)
+  - [ ] Exercise: Migrate 2.3 pipeline to ES with hybrid retrieval
+- [ ] **2.4c** pgvector as Vector Store (POC / simpler stacks)
+  - [ ] Exercise: Migrate 2.3 pipeline to pgvector
+- [ ] **2.5** Conversational Memory (+ Postgres checkpointer)
+  - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed)
+- [ ] **2.6** GraphRAG (Neo4j / FalkorDB)
+  - [ ] Exercise: GraphRAG pipeline over a document set
+- [ ] 🏗️ Mini-Project: RAG Chatbot over documents (deploy + README + push)
 
 ## Phase 3 — LangGraph Fundamentals
 - [ ] **3.1** Hello Graph
@@ -47,16 +53,25 @@
 - [ ] **4.4** Plan-and-Execute
 - [ ] **4.5** Reflection
 - [ ] **4.6** Long-Term Memory
+- [ ] **4.7** MCP (Model Context Protocol)
+  - [ ] Exercise: Raw MCP server → rebuild with mcp-use
 - [ ] 🏗️ Mini-Project: Multi-Agent Research Assistant with React UI
 
 ## Phase 5 — Production & Deep Agents
 - [ ] **5.1** Deep Agents
-- [ ] **5.2** Evaluation
+- [ ] **5.2** Evaluation (LangSmith + RAGAS)
 - [ ] **5.3** Reliability
 - [ ] **5.4** Deployment
+- [ ] **5.5** Azure AI Foundry Production Layer
+- [ ] **5.6** Claude Agent SDK
+
+## Phase 6 — AI Governance & Security
+- [ ] **6.1** Guardrails & Output Validation
+- [ ] **6.2** Audit Logging & Observability
+- [ ] **6.3** EU AI Act Basics
 
 ## Capstone
-- [ ] 🎓 Capstone Project — full agentic application
+- [ ] 🎓 Capstone Project — Personal Research Assistant (full agentic app)
 
 ---
 

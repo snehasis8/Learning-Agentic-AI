@@ -93,7 +93,7 @@ async function templateWay() {
   const chain = translationTemplate.pipe(model);
 
   console.log("\n--- Translations using template ---");
-  for (const lang of ["Hindi", "Spanish", "Japanese", "French"]) {
+  for (const lang of ["Hindi", "Spanish", "Japanese", "French" , "Bengali"]) {
     const response = await chain.invoke({
       language: lang,
       text: "Good morning, how are you?",
@@ -197,9 +197,9 @@ async function partialTemplates() {
 
 async function main() {
   // await manualWay();
-  // await templateWay();
+  await templateWay();
   // await fewShotPrompting();
-  await partialTemplates();
+  // await partialTemplates();
 }
 
 main().catch(console.error);
