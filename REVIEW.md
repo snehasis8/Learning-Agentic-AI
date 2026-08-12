@@ -21,3 +21,5 @@ A `pass` moves the card up one box; a `miss` drops it back to Box 1.
 | 2.1 | 02-rag-memory/01-document-loaders-qa.md | 1 | — | 2026-06-18 |
 | 2.2 | 02-rag-memory/02-embeddings-vector-stores-qa.md | 1 | — | 2026-06-18 |
 | 2.3 | 02-rag-memory/03-basic-rag-qa.md | 1 | — | 2026-06-22 |
+| 3.1 | 03-langgraph/01-hello-graph-qa.md | 1 | — | 2026-08-04 |
+| 3.2 | 03-langgraph/02-state-management-qa.md | 1 | — | 2026-08-12 |
