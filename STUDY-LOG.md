@@ -1,7 +1,7 @@
 # 🔥 Study Log
 
 <!-- STATS (auto-updated by `npm run focus:log` — do not edit this line by hand) -->
-**Current streak:** 1 day · **Longest streak:** 1 day · **Total sessions:** 2
+**Current streak:** 1 day · **Longest streak:** 1 day · **Total sessions:** 3
 
 > Log every study session so your streak and real pace stay accurate. Easiest way:
 > `npm run focus:log -- --minutes 45 --module 2.3 --note "basic RAG"`
@@ -11,6 +11,7 @@
 | Date | # | Module(s) worked | Minutes | Notes |
 |------|---|------------------|---------|-------|
 <!-- LOG ROWS BELOW -->
+| 2026-08-11 | 3 | 3.1 | 90 | hello graph: teaching file + exercise + both bonuses |
 | 2026-06-21 | 2 | 2.3 | 45 | This is the fundamental concept of Rag that how it's work. 
 
 Each steps with very clear indication .

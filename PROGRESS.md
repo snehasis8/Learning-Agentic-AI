@@ -19,16 +19,46 @@
 - [x] **1.6** Simple Agent
   - [x] Exercise: Travel query agent
 
-## Phase 2 — RAG & Memory
+> ✅ **Azure auth resolved** (2026-08-11): moved to the Foundry `prompt-store` resource
+> using the **v1 API** (`<endpoint>/openai/v1`, no `api-version` needed). Key auth works.
+> All models go through `lib/llm.ts` — import `{ llm, embeddings }` from there.
+> ⚠️ Legacy `02-rag-memory/*.ts` still use `AzureChatOpenAI` and need swapping to `lib/llm.ts`.
+
+## 🔴 ACTIVE — Phase 3 — LangGraph Fundamentals
+- [x] **3.1** Hello Graph
+- [ ] **3.2** State Management 👉 YOU ARE HERE
+- [ ] **3.3** Conditional Edges
+- [ ] **3.4** Tool-Calling Agent
+- [ ] **3.5** Checkpointing
+- [ ] **3.6** Human-in-the-Loop
+
+## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
+- [ ] **A.1** Why AG-UI (event-based agent↔frontend)
+- [ ] **A.2** The Event Protocol
+- [ ] **A.3** LangGraph + AG-UI integration
+- [ ] **A.4** Shared State & HITL over AG-UI
+
+## 🔴 ACTIVE — Module 4.7 — MCP (pulled forward)
+- [ ] **4.7** MCP (Model Context Protocol)
+  - [ ] Exercise: Raw MCP server → rebuild with mcp-use
+
+## 🔴 ACTIVE — Phase 3.6 — Generative UI / Widgets
+- [ ] **W.1** Generative UI Fundamentals
+- [ ] **W.2** Tool-Rendered Widgets
+- [ ] **W.3** Interactive Widgets → Agent
+
+---
+
+## Phase 2 — RAG & Memory (partly done; rest = backlog)
 - [x] **2.1** Document Loaders
   - [x] Exercise: Load + split a text file
 - [x] **2.2** Embeddings & Vector Stores
   - [x] Exercise: Embed chunks, similarity search
 - [x] **2.3** Basic RAG
   - [x] Exercise: Q&A over a document
-- [ ] **2.4** Advanced RAG (multi-query, re-ranking, hybrid, RAGAS) 👉 YOU ARE HERE
+- [x] **2.4** Advanced RAG (concepts + 3 interview Qs done)
   - [ ] Exercise: Improve RAG with multi-query + measure with RAGAS
-- [ ] **2.4b** Elasticsearch as Vector Store (production — HNSW kNN, BM25, RRF)
+- [ ] **2.4b** Elasticsearch as Vector Store (also in project — promote on demand)
   - [ ] Exercise: Migrate 2.3 pipeline to ES with hybrid retrieval
 - [ ] **2.4c** pgvector as Vector Store (POC / simpler stacks)
   - [ ] Exercise: Migrate 2.3 pipeline to pgvector
@@ -38,23 +68,13 @@
   - [ ] Exercise: GraphRAG pipeline over a document set
 - [ ] 🏗️ Mini-Project: RAG Chatbot over documents (deploy + README + push)
 
-## Phase 3 — LangGraph Fundamentals
-- [ ] **3.1** Hello Graph
-- [ ] **3.2** State Management
-- [ ] **3.3** Conditional Edges
-- [ ] **3.4** Tool-Calling Agent
-- [ ] **3.5** Checkpointing
-- [ ] **3.6** Human-in-the-Loop
-
-## Phase 4 — Agentic Patterns
+## Phase 4 — Agentic Patterns (rest)
 - [ ] **4.1** Streaming
 - [ ] **4.2** Subgraphs
 - [ ] **4.3** Multi-Agent
 - [ ] **4.4** Plan-and-Execute
 - [ ] **4.5** Reflection
 - [ ] **4.6** Long-Term Memory
-- [ ] **4.7** MCP (Model Context Protocol)
-  - [ ] Exercise: Raw MCP server → rebuild with mcp-use
 - [ ] 🏗️ Mini-Project: Multi-Agent Research Assistant with React UI
 
 ## Phase 5 — Production & Deep Agents

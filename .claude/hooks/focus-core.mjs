@@ -50,8 +50,9 @@ export function parseProgress() {
     let kind = 'other';
     if (/capstone/i.test(label)) kind = 'capstone';
     else if (/mini-project/i.test(label)) kind = 'mini';
-    else if (/\*\*\d+\.\d+[a-z]?\*\*/.test(label)) kind = 'module'; // 2.4, 2.4b, ...
-    const id = (label.match(/\d+\.\d+[a-z]?/) || [])[0] || null;
+    // Module ids: numeric (3.1), letter-suffixed (2.4b), or letter-prefixed (A.1, W.2).
+    else if (/\*\*(?:\d+\.\d+[a-z]?|[A-Z]\.\d+)\*\*/.test(label)) kind = 'module';
+    const id = (label.match(/\d+\.\d+[a-z]?|[A-Z]\.\d+/) || [])[0] || null;
     items.push({ index: idx++, done, label: clean(label), kind, id, phase });
   }
   const modules = items.filter((i) => i.kind === 'module');
@@ -208,7 +209,7 @@ export function markDone(moduleId) {
   if (!re.test(prog)) return { ok: false, message: `Module ${moduleId} not found as an unchecked item.` };
   prog = prog.replace(/\s*👉 YOU ARE HERE/g, '');
   prog = prog.replace(re, (_m, dash, rest) => `${dash}[x]${rest.replace(/\s+$/, '')}`);
-  prog = prog.replace(/^(\s*-\s*)\[ \](\s*\*\*\d+\.\d+[a-z]?\*\*.*)$/m,
+  prog = prog.replace(/^(\s*-\s*)\[ \](\s*\*\*(?:\d+\.\d+[a-z]?|[A-Z]\.\d+)\*\*.*)$/m,
     (_m, dash, rest) => `${dash}[ ]${rest.replace(/\s+$/, '')} 👉 YOU ARE HERE`);
   write('PROGRESS.md', prog);
   return { ok: true, message: `Checked off module ${moduleId} and moved the 👉 marker.` };
@@ -230,7 +231,7 @@ export function toggleItem(index) {
     }
   }
   let out = lines.join('\n').replace(/\s*👉 YOU ARE HERE/g, '');
-  out = out.replace(/^(\s*-\s*)\[ \](\s*\*\*\d+\.\d+[a-z]?\*\*.*)$/m,
+  out = out.replace(/^(\s*-\s*)\[ \](\s*\*\*(?:\d+\.\d+[a-z]?|[A-Z]\.\d+)\*\*.*)$/m,
     (_m, dash, rest) => `${dash}[ ]${rest.replace(/\s+$/, '')} 👉 YOU ARE HERE`);
   write('PROGRESS.md', out);
   return { ok: true, message: `Toggled item #${index}.` };

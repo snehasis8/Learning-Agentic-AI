@@ -62,6 +62,26 @@ Every module follows this pattern:
 
 ---
 
+## 🔴 ACTIVE TRACK — Project-Driven Priority (reordered 2026-08-03)
+
+Priority now follows the **live project stack** (LangGraph → AG-UI → MCP → Generative UI widgets).
+Nothing is dropped — Phase 2 leftovers (2.4b Elastic, 2.4c, 2.5, 2.6) move to the backlog and get
+pulled forward whenever the project needs them (Elastic is also in the project — promote on demand).
+
+| Order | What | Why now |
+|-------|------|---------|
+| 1 | **Phase 3 — LangGraph** (3.1–3.6) | Building it at work right now |
+| 2 | **Phase 3.5 — AG-UI Protocol** (A.1–A.4) | Agent↔frontend layer of the project |
+| 3 | **Module 4.7 — MCP** (pulled forward) | Project uses MCP server + `mcp-use` |
+| 4 | **Phase 3.6 — Generative UI / Widgets** (W.1–W.3) | Agent-rendered React components |
+| — | *Backlog*: 2.4b, 2.4c, 2.5, 2.6, rest of P4, P5, P6, capstone | Resume after, or on project demand |
+
+> **Prerequisite for everything**: Azure OpenAI now rejects key auth (`AuthenticationTypeDisabled`).
+> Must finish the **Entra ID token auth** migration (`az login` + `azureADTokenProvider`) before any
+> module code runs.
+
+---
+
 ## Phase 3: LangGraph Fundamentals (Week 5-6)
 
 **Objective**: Understand the graph-based orchestration framework that powers complex agents.
@@ -76,6 +96,36 @@ Every module follows this pattern:
 | 3.6 | Human-in-the-Loop | Interrupts, approval workflows, state editing | Pause for human approval |
 
 > **Why 3.5 + 3.6 matter for Europe**: EU AI Act requires human oversight for high-risk AI decisions. HITL is not optional in enterprise European deployments — it's a compliance requirement. Interviewers at Dutch and Irish enterprise companies will ask about this.
+
+---
+
+## Phase 3.5: AG-UI Protocol (Agent ↔ Frontend) — PROJECT PRIORITY
+
+**Objective**: Standardised, event-based streaming between your LangGraph agent and the UI.
+Docs: https://docs.ag-ui.com/introduction
+
+| # | Module | Key Concepts | Exercise |
+|---|--------|-------------|----------|
+| A.1 | Why AG-UI | Why REST/GraphQL break for agents (long-running, nondeterministic, streaming, multi-turn); AG-UI as an abstraction over HTTP/WebSockets | Write down 3 things a request/response API cannot express about an agent run |
+| A.2 | The Event Protocol | The event stream as the contract: message/token events, tool-call events, state events, lifecycle; bidirectional flow | Consume a raw AG-UI event stream and log every event type in order |
+| A.3 | LangGraph + AG-UI | 1st-party LangGraph integration; mapping graph nodes/state to AG-UI events; the AG-UI Dojo demos | Expose your Phase 3 LangGraph agent over AG-UI |
+| A.4 | Shared State & HITL | Shared agent↔app state + conflict resolution; interrupts, approvals, edits over the protocol | Add an approval interrupt driven from the frontend |
+
+> **Why this matters**: AG-UI is becoming the standard agent↔UI layer (CopilotKit is the 1st-party
+> client; LangGraph is a partner integration). It's the piece most backend-heavy AI engineers skip —
+> and it's exactly what makes an agent feel like a product instead of a curl call.
+
+---
+
+## Phase 3.6: Generative UI / Widgets — PROJECT PRIORITY
+
+**Objective**: The agent renders real interactive React components, not just text.
+
+| # | Module | Key Concepts | Exercise |
+|---|--------|-------------|----------|
+| W.1 | Generative UI Fundamentals | Static typed components vs declarative//language-driven UI; when the agent should render a widget instead of prose | Render one typed component from a tool result |
+| W.2 | Tool-Rendered Widgets | Mapping tool calls → React components; streaming tool output into a live widget; frontend vs backend tools | Build 2–3 widgets (e.g. chart, form, card) driven by agent tool calls |
+| W.3 | Interactive Widgets → Agent | Widgets that send user input *back* into the agent (forms, approvals, selections); state sync | A form widget whose submission resumes the graph |
 
 ---
 
