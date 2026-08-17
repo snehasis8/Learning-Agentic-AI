@@ -23,3 +23,4 @@ A `pass` moves the card up one box; a `miss` drops it back to Box 1.
 | 2.3 | 02-rag-memory/03-basic-rag-qa.md | 1 | — | 2026-06-22 |
 | 3.1 | 03-langgraph/01-hello-graph-qa.md | 1 | — | 2026-08-04 |
 | 3.2 | 03-langgraph/02-state-management-qa.md | 1 | — | 2026-08-12 |
+| 3.3 | 03-langgraph/03-conditional-edges-qa.md | 1 | — | 2026-08-13 |

@@ -94,9 +94,28 @@ async function reducerPatterns() {
   console.log("   profile   :", result.profile, "  <- MERGED (name survived!)");
   console.log("   tokensUsed:", result.tokensUsed, "  <- summed");
 
-  // Try this: change `profile`'s reducer to the default (remove the config).
-  // stepTwo's { role } would WIPE OUT { name }. That is the classic
-  // "my user context keeps disappearing" bug in production agents.
+  // TRY THIS — and note the two different meanings of the word "default":
+  //
+  //   `default:` KEY      -> the INITIAL VALUE, e.g. default: () => ({})
+  //   the DEFAULT REDUCER -> the built-in OVERWRITE behaviour you get when you
+  //                          pass NO config object at all
+  //
+  // The experiment is the second one. Change the whole field declaration from:
+  //
+  //     profile: Annotation<Record<string, unknown>>({ reducer: ..., default: ... }),
+  //   to:
+  //     profile: Annotation<Record<string, unknown>>,        // no parens, no config
+  //
+  // Now stepTwo's { role } REPLACES the entire object instead of merging, so
+  // { name } is silently gone:
+  //     with merge reducer -> { name: 'Snehasis', role: 'engineer' }
+  //     with default (overwrite) -> { role: 'engineer' }
+  //
+  // That is the classic "my user context keeps disappearing" bug in production
+  // agents: each enrichment node wipes the previous node's work, with no error.
+  //
+  // (Removing only the `default:` key changes nothing here — the first write
+  //  simply becomes the initial value, as you saw in 3.1 Bonus B.)
 }
 
 // =============================================================================
@@ -275,38 +294,51 @@ const ParallelState = Annotation.Root({
   }),
 });
 
-function buildFanOut(nodeUpdate: (name: string) => Record<string, unknown>) {
-  return new StateGraph(ParallelState)
-    .addNode("fanOut", () => ({}))
-    .addNode("workerA", () => nodeUpdate("A"))
-    .addNode("workerB", () => nodeUpdate("B"))
-    .addNode("join", () => ({}))
-    .addEdge(START, "fanOut")
-    .addEdge("fanOut", "workerA") // both edges from fanOut =>
-    .addEdge("fanOut", "workerB") // these two run in the SAME step
-    .addEdge("workerA", "join")
-    .addEdge("workerB", "join")
-    .addEdge("join", END)
-    .compile();
-}
+// --- 5a: BAD — both workers write `overwritten`, which has NO reducer --------
+// Note the two edges leaving "fanOut": that is what makes A and B run in the
+// SAME step. Nothing else about this graph is special.
+const badFanOut = new StateGraph(ParallelState)
+  .addNode("fanOut", () => ({}))
+  .addNode("workerA", () => ({ overwritten: "A", collected: ["A"] }))
+  .addNode("workerB", () => ({ overwritten: "B", collected: ["B"] }))
+  .addNode("join", () => ({}))
+  .addEdge(START, "fanOut")
+  .addEdge("fanOut", "workerA") // ← both edges leave fanOut, so
+  .addEdge("fanOut", "workerB") // ← A and B run in the same step
+  .addEdge("workerA", "join")
+  .addEdge("workerB", "join")
+  .addEdge("join", END)
+  .compile();
+
+// --- 5b: GOOD — identical graph, but workers only write the reduced field ----
+const goodFanOut = new StateGraph(ParallelState)
+  .addNode("fanOut", () => ({}))
+  .addNode("workerA", () => ({ collected: ["A"] }))
+  .addNode("workerB", () => ({ collected: ["B"] }))
+  .addNode("join", () => ({}))
+  .addEdge(START, "fanOut")
+  .addEdge("fanOut", "workerA")
+  .addEdge("fanOut", "workerB")
+  .addEdge("workerA", "join")
+  .addEdge("workerB", "join")
+  .addEdge("join", END)
+  .compile();
 
 async function parallelWrites() {
   console.log("\n=== PART 5: Parallel nodes require reducers ===");
 
-  // 5a — both workers write to the NO-reducer field -> LangGraph throws
-  const bad = buildFanOut((name) => ({ overwritten: name, collected: [name] }));
+  // 5a — writing a no-reducer field from two parallel nodes -> LangGraph throws
   try {
-    await bad.invoke({ overwritten: "none" });
+    await badFanOut.invoke({ overwritten: "none" });
     console.log("   (unexpected: no error)");
   } catch (err: any) {
-    console.log("   ✗ writing a no-reducer field from 2 parallel nodes THROWS:");
+    console.log("   ✗ two parallel nodes wrote `overwritten` (no reducer) -> THROWS:");
     console.log("     ", err.constructor.name, "|", err.lc_error_code);
     console.log("      => LangGraph refuses to guess which write wins");
   }
 
-  // 5b — workers only write the field that HAS a reducer -> both are kept
-  const good = buildFanOut((name) => ({ collected: [name] }));
-  const result = await good.invoke({ overwritten: "none" });
+  // 5b — the same fan-out, but only writing `collected` (which HAS a reducer)
+  const result = await goodFanOut.invoke({ overwritten: "none" });
   console.log("   ✓ with a reducer, both parallel results survive:");
   console.log("      collected:", result.collected);
 
@@ -321,11 +353,11 @@ async function parallelWrites() {
 // =============================================================================
 
 async function main() {
-  await reducerPatterns();
-  await messagesState();
-  await trimmingHistory();
-  await zodState();
-  await parallelWrites();
+  // await reducerPatterns();
+   //await messagesState();
+  //  await trimmingHistory();
+  // await zodState();
+   await parallelWrites();
 
   console.log("\n=============================================================");
   console.log("RECAP");
