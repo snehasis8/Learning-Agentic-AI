@@ -25,3 +25,4 @@ A `pass` moves the card up one box; a `miss` drops it back to Box 1.
 | 3.2 | 03-langgraph/02-state-management-qa.md | 1 | — | 2026-08-12 |
 | 3.3 | 03-langgraph/03-conditional-edges-qa.md | 1 | — | 2026-08-13 |
 | 3.4 | 03-langgraph/04-tool-calling-agent-qa.md | 1 | — | 2026-08-18 |
+| 3.5 | 03-langgraph/05-checkpointing-qa.md | 1 | — | 2026-08-19 |
