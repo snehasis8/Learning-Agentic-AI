@@ -174,8 +174,17 @@ async function runAgent() {
 // -----------------------------------------------------------------------------
 // 1. BOUND THE LOOP. A confused model can ping-pong llm->tools forever.
 //    recursionLimit is the backstop; a step counter in state is the real fix.
-// 2. TOOL ERRORS: a throwing tool kills the run. Catch inside the tool and
-//    return an error STRING — the model can often recover from "not found".
+// 2. TOOL ERRORS: ToolNode sets `handleToolErrors: true` by DEFAULT, so a
+//    throwing tool does NOT kill the run — the error is caught and appended as
+//    a ToolMessage ("Error: <msg>\n Please fix your mistakes."), and the model
+//    typically explains or retries. Verified:
+//       handleToolErrors: true  -> run survives, error becomes a ToolMessage
+//       handleToolErrors: false -> the exception propagates and the run dies
+//    So the real production risk is a SILENT DEGRADE, not a crash: the agent
+//    apologises to the user while your monitoring records a successful run.
+//    Log tool failures yourself, and write domain-specific error strings
+//    ("order not found - check the id format") instead of relying on the
+//    generic wrapper, since that text is all the model has to reason with.
 // 3. COST: every loop iteration is a full LLM call with the whole history.
 //    Long tool outputs get re-sent on every pass — truncate them.
 // 4. Validate tool args with zod (you already do) — the model WILL eventually

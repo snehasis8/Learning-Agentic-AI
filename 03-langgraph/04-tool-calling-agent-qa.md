@@ -69,6 +69,6 @@ A: Yes. `tool_calls` is an array — one pass can request `get_weather` *and* `c
 **Q: What breaks first in production? (interview question 3)**  
 A:
 1. **Unbounded loops** — a confused model ping-pongs `llm → tools` until `GraphRecursionError`. `recursionLimit` is the backstop; a step counter in state is the real fix.
-2. **Throwing tools** — an exception kills the whole run. Catch inside the tool and return an error *string*; the model can often recover from `"city not found"`.
+2. **Tool errors** — `ToolNode` has `handleToolErrors: true` by **default**, so a throwing tool does *not* kill the run: the exception is caught and appended as a `ToolMessage` reading `Error: <msg>\n Please fix your mistakes.`, and the model usually explains or retries. Set `handleToolErrors: false` to make it fail fast instead. The real risk is the *opposite* of a crash — a silent degrade, where the agent apologises to the user while your alerting sees a successful run. Log tool failures explicitly, and prefer your own domain-specific error strings ("order not found — check the id format") over the generic wrapper, because that text is all the model has to reason with.
 3. **Cost blowup** — every iteration re-sends the entire history, including long tool outputs. Truncate large results before they enter state.
 4. **Malformed args** — the model will eventually send a bad argument. zod validation on the tool schema is what catches it.
