@@ -28,8 +28,8 @@
 - [x] **3.1** Hello Graph
 - [x] **3.2** State Management
 - [x] **3.3** Conditional Edges
-- [ ] **3.4** Tool-Calling Agent 👉 YOU ARE HERE
-- [ ] **3.5** Checkpointing
+- [x] **3.4** Tool-Calling Agent
+- [ ] **3.5** Checkpointing 👉 YOU ARE HERE
 - [ ] **3.6** Human-in-the-Loop
 
 ## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
