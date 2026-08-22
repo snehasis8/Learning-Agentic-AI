@@ -29,8 +29,8 @@
 - [x] **3.2** State Management
 - [x] **3.3** Conditional Edges
 - [x] **3.4** Tool-Calling Agent
-- [ ] **3.5** Checkpointing 👉 YOU ARE HERE
-- [ ] **3.6** Human-in-the-Loop
+- [x] **3.5** Checkpointing
+- [ ] **3.6** Human-in-the-Loop 👉 YOU ARE HERE
 
 ## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
 - [ ] **A.1** Why AG-UI (event-based agent↔frontend)
