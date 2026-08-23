@@ -30,10 +30,10 @@
 - [x] **3.3** Conditional Edges
 - [x] **3.4** Tool-Calling Agent
 - [x] **3.5** Checkpointing
-- [ ] **3.6** Human-in-the-Loop 👉 YOU ARE HERE
+- [x] **3.6** Human-in-the-Loop
 
 ## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
-- [ ] **A.1** Why AG-UI (event-based agent↔frontend)
+- [ ] **A.1** Why AG-UI (event-based agent↔frontend) 👉 YOU ARE HERE
 - [ ] **A.2** The Event Protocol
 - [ ] **A.3** LangGraph + AG-UI integration
 - [ ] **A.4** Shared State & HITL over AG-UI
