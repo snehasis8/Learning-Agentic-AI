@@ -1,7 +1,7 @@
 # 🔥 Study Log
 
 <!-- STATS (auto-updated by `npm run focus:log` — do not edit this line by hand) -->
-**Current streak:** 1 day · **Longest streak:** 2 days · **Total sessions:** 7
+**Current streak:** 2 days · **Longest streak:** 2 days · **Total sessions:** 8
 
 > Log every study session so your streak and real pace stay accurate. Easiest way:
 > `npm run focus:log -- --minutes 45 --module 2.3 --note "basic RAG"`
@@ -11,6 +11,7 @@
 | Date | # | Module(s) worked | Minutes | Notes |
 |------|---|------------------|---------|-------|
 <!-- LOG ROWS BELOW -->
+| 2026-08-23 | 8 | 3.6 | 75 | HITL: interrupt/resume, reject path, interruptBefore gate, updateState edit |
 | 2026-08-22 | 7 | 3.5 | 90 | checkpointing: memory, thread isolation, getStateHistory, time-travel fork |
 | 2026-08-18 | 6 | 3.4 | 60 | tool-calling agent: loop built, tool-error experiment done |
 | 2026-08-17 | 5 | 3.3 | 0 | (same session) |
