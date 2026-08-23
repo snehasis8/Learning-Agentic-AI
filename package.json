@@ -13,6 +13,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@ag-ui/core": "^0.0.58",
     "@azure/identity": "^4.13.1",
     "@elastic/elasticsearch": "^8.19.2",
     "@langchain/classic": "^1.0.36",
