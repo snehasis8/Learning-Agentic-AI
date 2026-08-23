@@ -24,19 +24,36 @@
 > All models go through `lib/llm.ts` — import `{ llm, embeddings }` from there.
 > ⚠️ Legacy `02-rag-memory/*.ts` still use `AzureChatOpenAI` and need swapping to `lib/llm.ts`.
 
-## 🔴 ACTIVE — Phase 3 — LangGraph Fundamentals
-- [x] **3.1** Hello Graph
-- [x] **3.2** State Management
-- [x] **3.3** Conditional Edges
-- [x] **3.4** Tool-Calling Agent
-- [x] **3.5** Checkpointing
-- [x] **3.6** Human-in-the-Loop
+## ✅ DONE — Phase 3 — LangGraph Fundamentals
+- [x] **3.1** Hello Graph — State / Node / Edge, streamMode
+- [x] **3.2** State Management — reducers, MessagesAnnotation, zod + withLangGraph
+- [x] **3.3** Conditional Edges — routing, path maps, cycles, recursionLimit
+- [x] **3.4** Tool-Calling Agent — bindTools, tool_calls, ToolNode, the ReAct loop
+- [x] **3.5** Checkpointing — MemorySaver, thread_id, getStateHistory, time travel
+- [x] **3.6** Human-in-the-Loop — interrupt/Command, interruptBefore, updateState
+- [x] 🏗️ Mini-Project: Support Ticket Triage Agent (3.2 + 3.3 combined)
+      `03-langgraph/exercises/03-triage-agent.ts` — LLM routing, parallel
+      enrichment, retry cycle. Reference solution alongside it.
 
 ## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
-- [ ] **A.1** Why AG-UI (event-based agent↔frontend) 👉 YOU ARE HERE
+> **Stack:** `@ag-ui/core` (event schemas) · `@ag-ui/client` · `@ag-ui/langgraph`
+> **Approach:** terminal-first. No frontend until A.3/A.4, and then only a
+> single static HTML file with `EventSource` — no React, no build step.
+
+- [ ] **A.1** Why AG-UI 👉 YOU ARE HERE
+      The problem: `streamMode` events are LangGraph-specific. Any frontend has
+      to be rewritten per framework. AG-UI standardises the wire format.
 - [ ] **A.2** The Event Protocol
+      The event catalogue: lifecycle (RunStarted/Finished/Error, Step*),
+      text (TextMessageStart/Content/End), tools (ToolCallStart/Args/End/Result),
+      state (StateSnapshot, StateDelta via RFC-6902 JSON Patch, MessagesSnapshot),
+      reasoning, and Raw/Custom escape hatches.
 - [ ] **A.3** LangGraph + AG-UI integration
+      Map 3.1's streamMode output onto AG-UI events; serve over SSE.
+      First (tiny) HTML client appears here.
 - [ ] **A.4** Shared State & HITL over AG-UI
+      StateDelta for shared state; carrying 3.6's interrupt payloads to the
+      browser so a human can approve/edit from the UI.
 
 ## 🔴 ACTIVE — Module 4.7 — MCP (pulled forward)
 - [ ] **4.7** MCP (Model Context Protocol)
