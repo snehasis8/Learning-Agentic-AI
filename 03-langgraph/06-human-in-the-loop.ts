@@ -200,10 +200,10 @@ async function humanEdit() {
 //    thread_id alone authorise it.
 
 async function main() {
-  await basicInterrupt();
-  await rejectPath();
-  await staticInterrupt();
-  await humanEdit();
+  // await basicInterrupt();
+  // await rejectPath();
+  //  await staticInterrupt();
+   await humanEdit();
 
   console.log("\n=============================================================");
   console.log("RECAP");
