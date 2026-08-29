@@ -40,10 +40,10 @@
 > **Approach:** terminal-first. No frontend until A.3/A.4, and then only a
 > single static HTML file with `EventSource` — no React, no build step.
 
-- [ ] **A.1** Why AG-UI 👉 YOU ARE HERE
+- [x] **A.1** Why AG-UI
       The problem: `streamMode` events are LangGraph-specific. Any frontend has
       to be rewritten per framework. AG-UI standardises the wire format.
-- [ ] **A.2** The Event Protocol
+- [ ] **A.2** The Event Protocol 👉 YOU ARE HERE
       The event catalogue: lifecycle (RunStarted/Finished/Error, Step*),
       text (TextMessageStart/Content/End), tools (ToolCallStart/Args/End/Result),
       state (StateSnapshot, StateDelta via RFC-6902 JSON Patch, MessagesSnapshot),
