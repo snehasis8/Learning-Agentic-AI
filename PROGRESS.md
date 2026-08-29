@@ -43,12 +43,12 @@
 - [x] **A.1** Why AG-UI
       The problem: `streamMode` events are LangGraph-specific. Any frontend has
       to be rewritten per framework. AG-UI standardises the wire format.
-- [ ] **A.2** The Event Protocol 👉 YOU ARE HERE
+- [x] **A.2** The Event Protocol
       The event catalogue: lifecycle (RunStarted/Finished/Error, Step*),
       text (TextMessageStart/Content/End), tools (ToolCallStart/Args/End/Result),
       state (StateSnapshot, StateDelta via RFC-6902 JSON Patch, MessagesSnapshot),
       reasoning, and Raw/Custom escape hatches.
-- [ ] **A.3** LangGraph + AG-UI integration
+- [ ] **A.3** LangGraph + AG-UI integration 👉 YOU ARE HERE
       Map 3.1's streamMode output onto AG-UI events; serve over SSE.
       First (tiny) HTML client appears here.
 - [ ] **A.4** Shared State & HITL over AG-UI
