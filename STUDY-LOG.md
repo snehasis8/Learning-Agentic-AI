@@ -1,7 +1,7 @@
 # 🔥 Study Log
 
 <!-- STATS (auto-updated by `npm run focus:log` — do not edit this line by hand) -->
-**Current streak:** 1 day · **Longest streak:** 2 days · **Total sessions:** 10
+**Current streak:** 1 day · **Longest streak:** 2 days · **Total sessions:** 11
 
 > Log every study session so your streak and real pace stay accurate. Easiest way:
 > `npm run focus:log -- --minutes 45 --module 2.3 --note "basic RAG"`
@@ -11,6 +11,7 @@
 | Date | # | Module(s) worked | Minutes | Notes |
 |------|---|------------------|---------|-------|
 <!-- LOG ROWS BELOW -->
+| 2026-08-29 | 11 | A.3 | 90 | wrote a real LangGraph->AG-UI translator (no @ag-ui/langgraph, that needs LangGraph Platform), served real events over SSE, verified end-to-end with curl + html client |
 | 2026-08-29 | 10 | A.2 | 60 | event protocol: three patterns, hand-built the frontend reducer, validated against real schemas |
 | 2026-08-29 | 9 | A.1 | 150 | why AG-UI: built SSE from scratch (s1-s9), hand-translated a real run to AG-UI events, validated against real @ag-ui/core schemas |
 | 2026-08-23 | 8 | 3.6 | 75 | HITL: interrupt/resume, reject path, interruptBefore gate, updateState edit |

@@ -48,10 +48,10 @@
       text (TextMessageStart/Content/End), tools (ToolCallStart/Args/End/Result),
       state (StateSnapshot, StateDelta via RFC-6902 JSON Patch, MessagesSnapshot),
       reasoning, and Raw/Custom escape hatches.
-- [ ] **A.3** LangGraph + AG-UI integration 👉 YOU ARE HERE
+- [x] **A.3** LangGraph + AG-UI integration
       Map 3.1's streamMode output onto AG-UI events; serve over SSE.
       First (tiny) HTML client appears here.
-- [ ] **A.4** Shared State & HITL over AG-UI
+- [ ] **A.4** Shared State & HITL over AG-UI 👉 YOU ARE HERE
       StateDelta for shared state; carrying 3.6's interrupt payloads to the
       browser so a human can approve/edit from the UI.
 
