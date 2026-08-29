@@ -165,9 +165,9 @@ function whatItBuys() {
 }
 
 async function main() {
-  await rawLangGraphEvents();
-  theEventCatalogue();
-  whatItBuys();
+   await rawLangGraphEvents();
+   theEventCatalogue();
+   whatItBuys();
 
   console.log("\n=============================================================");
   console.log("RECAP");
