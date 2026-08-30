@@ -30,3 +30,4 @@ A `pass` moves the card up one box; a `miss` drops it back to Box 1.
 | A.1 | 04-agui/01-why-agui-qa.md | 1 | — | 2026-08-24 |
 | A.2 | 04-agui/02-event-protocol-qa.md | 1 | — | 2026-08-27 |
 | A.3 | 04-agui/03-langgraph-integration-qa.md | 1 | — | 2026-08-30 |
+| A.4 | 04-agui/04-shared-state-hitl-qa.md | 1 | — | 2026-08-31 |

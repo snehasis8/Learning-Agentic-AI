@@ -51,12 +51,12 @@
 - [x] **A.3** LangGraph + AG-UI integration
       Map 3.1's streamMode output onto AG-UI events; serve over SSE.
       First (tiny) HTML client appears here.
-- [ ] **A.4** Shared State & HITL over AG-UI 👉 YOU ARE HERE
+- [x] **A.4** Shared State & HITL over AG-UI
       StateDelta for shared state; carrying 3.6's interrupt payloads to the
       browser so a human can approve/edit from the UI.
 
 ## 🔴 ACTIVE — Module 4.7 — MCP (pulled forward)
-- [ ] **4.7** MCP (Model Context Protocol)
+- [ ] **4.7** MCP (Model Context Protocol) 👉 YOU ARE HERE
   - [ ] Exercise: Raw MCP server → rebuild with mcp-use
 
 ## 🔴 ACTIVE — Phase 3.6 — Generative UI / Widgets
