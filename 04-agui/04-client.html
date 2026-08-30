@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>A.4 — HITL over AG-UI</title>
+<style>
+  body { font-family: ui-monospace, monospace; background: #12151c; color: #e7eaf1; padding: 24px; max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 16px; color: #9aa3b2; }
+  #log { background: #191d26; border: 1px solid #2d3442; border-radius: 8px; padding: 14px; font-size: 13px; white-space: pre-wrap; min-height: 120px; margin-top: 12px; }
+  .ev { color: #767f91; }
+  .tool { color: #4fc0b0; }
+  .text { color: #e7eaf1; }
+  .state { color: #e0a05a; }
+  input { width: 60%; background: #191d26; border: 1px solid #2d3442; color: #e7eaf1; padding: 8px; border-radius: 6px; font: inherit; }
+  button { padding: 8px 14px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; margin-left: 4px; }
+  #ask { background: #6fb0ec; color: #0b1020; }
+  .approve { background: #4fc0b0; color: #0b1020; }
+  .reject { background: #e06b6b; color: #0b1020; }
+  #approval { display: none; margin-top: 12px; padding: 12px; background: #33240f; border: 1px solid #e0a05a; border-radius: 8px; }
+</style>
+</head>
+<body>
+  <h1>🎯 A.4 — shared state + human-in-the-loop</h1>
+  <div>
+    <input id="q" value="Refund order A123 5000 cents" />
+    <button id="ask" onclick="ask()">Send</button>
+  </div>
+  <div id="approval">
+    <div id="approval-text"></div>
+    <button class="approve" onclick="resume('approve')">✓ Approve</button>
+    <button class="reject" onclick="resume('reject')">✗ Reject</button>
+  </div>
+  <div id="log"></div>
+
+<script>
+const log = document.getElementById("log");
+const approvalBox = document.getElementById("approval");
+let reply = "";
+let threadId = null;
+
+function line(text, cls) {
+  const div = document.createElement("div");
+  div.className = cls || "ev";
+  div.textContent = text;
+  log.appendChild(div);
+}
+
+function handleStream(es) {
+  es.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    switch (ev.type) {
+      case "THREAD_ID":
+        threadId = ev.threadId;
+        break;
+      case "RUN_STARTED":
+        line("● run started", "ev");
+        break;
+      case "STATE_SNAPSHOT":
+      case "STATE_DELTA":
+        line("◆ state: " + JSON.stringify(ev.snapshot ?? ev.delta), "state");
+        break;
+      case "TOOL_CALL_START":
+        line("🔧 calling " + ev.toolCallName + "...", "tool");
+        break;
+      case "TOOL_CALL_RESULT":
+        line("   -> " + ev.content, "tool");
+        break;
+      case "TEXT_MESSAGE_CONTENT":
+        reply += ev.delta;
+        let el = document.getElementById("reply-line");
+        if (!el) { el = document.createElement("div"); el.id = "reply-line"; el.className = "text"; log.appendChild(el); }
+        el.textContent = reply;
+        break;
+      case "RUN_FINISHED":
+        if (ev.outcome?.type === "interrupt") {
+          const it = ev.outcome.interrupts[0];
+          line("⏸ paused: " + it.reason, "ev");
+          document.getElementById("approval-text").textContent = it.message;
+          approvalBox.style.display = "block";
+        } else {
+          line("● run finished", "ev");
+        }
+        es.close();
+        break;
+    }
+  };
+  es.onerror = () => { line("(connection closed)", "ev"); es.close(); };
+}
+
+function ask() {
+  log.innerHTML = "";
+  reply = "";
+  approvalBox.style.display = "none";
+  const q = encodeURIComponent(document.getElementById("q").value);
+  handleStream(new EventSource("/chat?q=" + q));
+}
+
+function resume(decision) {
+  approvalBox.style.display = "none";
+  reply = "";
+  line("--- resuming with: " + decision + " ---", "ev");
+  handleStream(new EventSource("/resume?threadId=" + threadId + "&payload=" + decision));
+}
+</script>
+</body>
+</html>
