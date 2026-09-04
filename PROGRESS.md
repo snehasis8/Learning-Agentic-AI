@@ -56,8 +56,24 @@
       browser so a human can approve/edit from the UI.
 
 ## 🔴 ACTIVE — Module 4.7 — MCP (pulled forward)
-- [ ] **4.7** MCP (Model Context Protocol) 👉 YOU ARE HERE
-  - [ ] Exercise: Raw MCP server → rebuild with mcp-use
+> **Stack:** raw JSON-RPC (M.1) · `@modelcontextprotocol/sdk` (M.2) · `mcp-use` (M.3)
+> **Approach:** protocol first, framework second — same move as A.1's hand-built SSE.
+> MCP is the agent→**tools** wire; AG-UI was the agent→**UI** wire. Both meet at the agent.
+
+- [ ] **M.1** Why MCP — an Express server your agent can call 👉 YOU ARE HERE
+      The two halves of a tool (description vs implementation) and why they
+      needn't share a process. JSON-RPC's three fields, tools/list + tools/call,
+      the three primitives, and a real LLM calling a tool it discovered over HTTP.
+  - [ ] Exercise: add a tool without touching the client; break the description
+- [ ] **M.2** The full HTTP transport + the SDK
+      Sessions, DELETE, Origin checks (`05-mcp/02-http-transport.ts`), then
+      rebuild it with `@modelcontextprotocol/sdk` and MCP Inspector.
+- [ ] **M.3** MCP → LangGraph agent with `mcp-use`
+      Wire MCP tools into a real agent, connect GitHub MCP, multi-server config.
+      This is the project stack.
+- [ ] **M.4** Transports & production
+      stdio vs Streamable HTTP, auth, error handling, and which MCP calls to
+      gate behind a 3.6-style interrupt.
 
 ## 🔴 ACTIVE — Phase 3.6 — Generative UI / Widgets
 - [ ] **W.1** Generative UI Fundamentals
