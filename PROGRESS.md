@@ -8,6 +8,44 @@
 
 ---
 
+## 🔴 ACTIVE TRACK — Durable State → Agent Composition (2026-09-05 → 2026-10-16)
+
+> Set by **HANDOFF-2026-09-04.md**, which supersedes the ordering in LEARNING-PLAN.md.
+> The gap being closed: real agentic patterns and flow — composing agents, subgraphs,
+> durable state. Nothing below this section changes **status**; only the **order** changed.
+
+| Weeks | What |
+|---|---|
+| **Sep 5–11** | **2.5** Durable state — Postgres checkpointer  ◀ *now* |
+| Sep 12–25 | **4.2** Subgraphs → **4.3** Multi-Agent (a supervisor over those subgraphs) |
+| Sep 26–Oct 2 | **4.4** Plan-and-Execute → **4.5** Reflection — and when each beats plain ReAct |
+| Oct 3–9 | **4.6** Long-Term Memory (Store vs checkpointer, side by side) + **4.1** Streaming |
+| Oct 10–16 | **4.8** A2A — protocol first: Agent Cards, task lifecycle, message/artifact model |
+| After | **2.4b** Elastic → **M.2–M.4** MCP → **W.1–W.3** widgets → **5.2/5.3** evals + reliability |
+
+Nothing in Phase 4 is skipped — every pattern gets built on the same evolving system,
+including the ones you'd reject in a design review. The capstone grows out of that code
+instead of waiting for a "week 11–12".
+
+### This week — the durable-state block (one script that grows each session)
+
+- [ ] **2.5** Durable state — Postgres checkpointer 👉 YOU ARE HERE
+      `02-rag-memory/05-durable-state-postgres.ts` — was "Conversational Memory",
+      renamed by the handoff. Five steps, one file.
+  - [ ] Step 1 — `MemorySaver` → `PostgresSaver`, `setup()`, read the tables in psql
+  - [ ] Step 2 — `interrupt()` in a subgraph → kill the process → resume with `Command({ resume })`
+  - [ ] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
+        commit → observe the duplicate on resume, then fix it
+  - [ ] Step 4 — `getStateHistory()` → `updateState()` fork → resume
+  - [ ] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`
+        means in the work app
+  - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed)
+
+> Own these cold by the end of the block: checkpointer vs Store · super-step commit
+> semantics · pending writes · `checkpoint_ns` for subgraphs · retention/deletion policy.
+
+---
+
 ## Phase 1 — LangChain Foundations
 - [x] **1.1** Chat Models
   - [x] Exercise: News article analyzer
@@ -35,7 +73,7 @@
       `03-langgraph/exercises/03-triage-agent.ts` — LLM routing, parallel
       enrichment, retry cycle. Reference solution alongside it.
 
-## 🔴 ACTIVE — Phase 3.5 — AG-UI Protocol
+## ✅ DONE — Phase 3.5 — AG-UI Protocol
 > **Stack:** `@ag-ui/core` (event schemas) · `@ag-ui/client` · `@ag-ui/langgraph`
 > **Approach:** terminal-first. No frontend until A.3/A.4, and then only a
 > single static HTML file with `EventSource` — no React, no build step.
@@ -55,12 +93,12 @@
       StateDelta for shared state; carrying 3.6's interrupt payloads to the
       browser so a human can approve/edit from the UI.
 
-## 🔴 ACTIVE — Module 4.7 — MCP (pulled forward)
+## ⏸ QUEUED — Module 4.7 — MCP (M.1 started; resumes after the active track)
 > **Stack:** raw JSON-RPC (M.1) · `@modelcontextprotocol/sdk` (M.2) · `mcp-use` (M.3)
 > **Approach:** protocol first, framework second — same move as A.1's hand-built SSE.
 > MCP is the agent→**tools** wire; AG-UI was the agent→**UI** wire. Both meet at the agent.
 
-- [ ] **M.1** Why MCP — an Express server your agent can call 👉 YOU ARE HERE
+- [ ] **M.1** Why MCP — an Express server your agent can call
       The two halves of a tool (description vs implementation) and why they
       needn't share a process. JSON-RPC's three fields, tools/list + tools/call,
       the three primitives, and a real LLM calling a tool it discovered over HTTP.
@@ -75,7 +113,7 @@
       stdio vs Streamable HTTP, auth, error handling, and which MCP calls to
       gate behind a 3.6-style interrupt.
 
-## 🔴 ACTIVE — Phase 3.6 — Generative UI / Widgets
+## ⏸ QUEUED — Phase 3.6 — Generative UI / Widgets
 - [ ] **W.1** Generative UI Fundamentals
 - [ ] **W.2** Tool-Rendered Widgets
 - [ ] **W.3** Interactive Widgets → Agent
@@ -95,8 +133,8 @@
   - [ ] Exercise: Migrate 2.3 pipeline to ES with hybrid retrieval
 - [ ] **2.4c** pgvector as Vector Store (POC / simpler stacks)
   - [ ] Exercise: Migrate 2.3 pipeline to pgvector
-- [ ] **2.5** Conversational Memory (+ Postgres checkpointer)
-  - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed)
+> **2.5** → renamed **"Durable state — Postgres checkpointer"** and pulled forward.
+> It lives in the ACTIVE TRACK at the top of this file, with its five steps.
 - [ ] **2.6** GraphRAG (Neo4j / FalkorDB)
   - [ ] Exercise: GraphRAG pipeline over a document set
 - [ ] 🏗️ Mini-Project: RAG Chatbot over documents (deploy + README + push)
@@ -108,6 +146,12 @@
 - [ ] **4.4** Plan-and-Execute
 - [ ] **4.5** Reflection
 - [ ] **4.6** Long-Term Memory
+- [ ] **4.8** A2A — Agent-to-Agent protocol *(added 2026-09-05; scheduled Oct 10–16)*
+      The third wire: MCP = agent↔**tool** · A2A = agent↔**agent** · AG-UI = agent↔**UI**.
+      Protocol first, as with A.1 and M.1: Agent Cards, the task lifecycle, the
+      message/artifact model. Design question to answer: *when does a subgraph become
+      a separate A2A agent?* (different team / deployment cadence / trust boundary —
+      otherwise keep it a subgraph). Expected as a requirement at work soon.
 - [ ] 🏗️ Mini-Project: Multi-Agent Research Assistant with React UI
 
 ## Phase 5 — Production & Deep Agents
