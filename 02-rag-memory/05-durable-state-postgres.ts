@@ -40,6 +40,7 @@ const PG_URL =
 // Same idea as 3.5's "user-42". Keep it fixed so re-running the script lands on
 // the SAME conversation — that is what makes the durability visible.
 const THREAD_ID = "pg-demo-1";
+const THREAD_ID_2 = "pg-demo-2";
 
 // =============================================================================
 // PART 1 — The swap
@@ -277,9 +278,9 @@ async function main() {
       return;
     }
 
-    await whatSetupCreated();
-    await acrossProcesses();
-    await readTheTables();
+    //  await whatSetupCreated();
+     await acrossProcesses();
+    // await readTheTables();
 
     console.log("\n=============================================================");
     console.log("RECAP");
