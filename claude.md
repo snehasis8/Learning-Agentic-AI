@@ -34,4 +34,8 @@ Target: FDE or full-stack AI engineer role in Europe.
 ## Repo Layout
 - 01-langchain-basics/ — complete
 - 02-rag-memory/ — 2.1–2.4 concepts done; 2.4b/2.4c/2.5/2.6 pending
-- 03-langgraph/ —
+- 03-langgraph/ — complete, incl. triage-agent mini-project
+- 04-agui/ — complete
+- 05-mcp/ — M.1 in progress, paused per handoff
+- lib/ — shared llm client
+- .claude/ — focus dashboard hooks + local UI

@@ -104,6 +104,23 @@ A:
 
 ---
 
+**Q: `checkpoint_writes` for one turn has 3 rows, but only 2 distinct `task_id` values. Why, and how do you tell them apart?**  
+A: Group by `task_id`, not by row. The `START` step and the `llm` node are two *different tasks* — each gets its own `task_id` — but a single task can write to more than one channel in the same super-step, and each write becomes its own row (`idx` distinguishes them).
+
+Concretely, from a real run:
+
+| checkpoint_id | task_id | idx | channel |
+|---|---|---|---|
+| `1f1a9181-6b50-...` | `6285501f-7fbc-...` | 0 | `messages` (the `HumanMessage`) |
+| `1f1a9181-6b50-...` | `6285501f-7fbc-...` | 1 | `branch:to:llm` (routing signal) |
+| `1f1a9181-6b5a-...` | `7a69bcc9-89e7-...` | 0 | `messages` (the `AIMessage`) |
+
+Rows 1–2 share one `task_id`: the `START` step has two jobs in one super-step — seed the state *and* tell the engine which node runs next — so it writes to two channels. The `llm` node's task only writes to `messages`; it doesn't write a `branch:to:END` signal, because `END` is a terminal sentinel with nothing downstream left to trigger.
+
+General rule: a task writes one row per channel it touches. A node that fans out to several parallel next-nodes would write several `branch:to:X` rows under one `task_id`, in the same super-step.
+
+---
+
 ## Open questions to answer at work
 
 - What does `thread_id` map to in the app — conversation, ticket, or user session?
