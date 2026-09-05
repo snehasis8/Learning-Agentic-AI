@@ -32,8 +32,8 @@ instead of waiting for a "week 11–12".
 - [ ] **2.5** Durable state — Postgres checkpointer 👉 YOU ARE HERE
       `02-rag-memory/05-durable-state-postgres.ts` — was "Conversational Memory",
       renamed by the handoff. Five steps, one file.
-  - [ ] Step 1 — `MemorySaver` → `PostgresSaver`, `setup()`, read the tables in psql
-  - [ ] Step 2 — `interrupt()` in a subgraph → kill the process → resume with `Command({ resume })`
+  - [x] Step 1 — `MemorySaver` → `PostgresSaver`, `setup()`, read the tables in psql
+  - [x] Step 2 — `interrupt()` in a subgraph → kill the process → resume with `Command({ resume })`
   - [ ] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
         commit → observe the duplicate on resume, then fix it
   - [ ] Step 4 — `getStateHistory()` → `updateState()` fork → resume

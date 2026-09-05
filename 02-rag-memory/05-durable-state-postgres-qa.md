@@ -121,6 +121,28 @@ General rule: a task writes one row per channel it touches. A node that fans out
 
 ---
 
+## Step 2 — interrupt() inside a subgraph, across a restart
+
+**Q: Does a subgraph need its own checkpointer to use `interrupt()`?**  
+A: No — and it shouldn't have one. A subgraph is compiled *without* a checkpointer. When it runs as a node inside a parent that has one, it checkpoints through that same saver. `interrupt()` doesn't care which graph called it; it stops the **whole run**, parent included, and persists everything through whichever checkpointer the top-level graph was compiled with.
+
+---
+
+**Q: What does `checkpoint_ns` actually look like for a subgraph, and why does it need `task_id` in it?**  
+A: `''` for the root graph's own steps; `'<nodeName>:<taskId>'` (e.g. `review:7be4e7dd-...`) for the subgraph's internal steps. The `task_id` suffix matters the moment a node runs more than once in the same thread — without it, two invocations of the same subgraph node would collide on the same namespace and their checkpoint chains would tangle together. `checkpoint_ns` is part of the primary key in all three tables, so parent rows and subgraph rows coexist under one `thread_id` without special-casing.
+
+---
+
+**Q: What made this a "shared state" subgraph rather than the harder variant?**  
+A: The parent's state schema is a strict superset of the subgraph's — same channel names (`question`, `approved`), same types. That's what makes `.addNode("review", reviewSubgraph)` legal with zero translation code: LangGraph just reads/writes the matching channels directly. The other variant — different schemas needing an explicit mapping function at the call site — is 4.2's problem, not this one's.
+
+---
+
+**Q: In Part 6, why does resuming show *two* `review:<task_id>` rows with `source=loop` instead of one?**  
+A: The interrupted run left the subgraph's `askHuman` step checkpointed once (`source=input` seeds it, `source=loop` records it having run and hit `interrupt()`). Resuming with `Command({ resume })` re-enters that same subgraph checkpoint, and `askHuman` produces its actual return value this time — a second `loop` checkpoint in the same namespace, chained by `parent_checkpoint_id`. The parent then advances past `review` into `askLLM`, which is why two new root-namespace (`ns=""`) rows appear afterward.
+
+---
+
 ## Open questions to answer at work
 
 - What does `thread_id` map to in the app — conversation, ticket, or user session?
