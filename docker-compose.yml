@@ -1,9 +1,15 @@
-# Local Elasticsearch + Kibana for Module 2.4b (LEARNING setup — security disabled).
-#   Start:   docker compose up -d
-#   ES API:  http://localhost:9200
-#   Kibana:  http://localhost:5601   (open "Dev Tools" — your query console)
-#   Stop:    docker compose down          (keeps nothing; data lives only while running)
-#   Wipe:    docker compose down -v        (also removes the data volume)
+# Local backing services (LEARNING setup — security disabled).
+#   - elasticsearch + kibana : Module 2.4b (vector store)
+#   - postgres               : Module 2.5  (LangGraph checkpointer)
+#
+#   Start all:   docker compose up -d
+#   Start one:   docker compose up -d postgres
+#   ES API:      http://localhost:9200
+#   Kibana:      http://localhost:5601   (open "Dev Tools" — your query console)
+#   Postgres:    postgresql://postgres:postgres@localhost:5432/langgraph
+#   psql:        docker exec -it pg-learn psql -U postgres -d langgraph
+#   Stop:        docker compose down       (ES data is gone; PG data survives in a volume)
+#   Wipe:        docker compose down -v    (also removes the pgdata volume)
 #
 # NOTE: security is disabled so the JS client connects over plain http with no
 # password/TLS. That is fine for local learning ONLY — never do this in production.
@@ -33,3 +39,26 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+
+  # Module 2.5 — the LangGraph Postgres checkpointer.
+  # The named volume is the point: `docker compose down` must NOT lose your
+  # checkpoints, or the durability lesson proves nothing.
+  postgres:
+    image: postgres:16
+    container_name: pg-learn
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=langgraph
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pgdata:
