@@ -30,12 +30,17 @@ instead of waiting for a "week 11–12".
 ### This week — the durable-state block (one script that grows each session)
 
 - [ ] **2.5** Durable state — Postgres checkpointer 👉 YOU ARE HERE
-      `02-rag-memory/05-durable-state-postgres.ts` — was "Conversational Memory",
-      renamed by the handoff. Five steps, one file.
+      Was one growing file, now split for size: shared Postgres wiring lives in
+      `02-rag-memory/_pg.ts`; each step is its own standalone script + qa file —
+      `05-durable-state-postgres.ts` (steps 1), `06-interrupt-in-subgraph.ts`
+      (step 2), `07-side-effects-idempotency.ts` (step 3, plus a Part 10 proving
+      `durability: "sync"` does NOT close the side-effect gap — only a business
+      idempotency key does).
   - [x] Step 1 — `MemorySaver` → `PostgresSaver`, `setup()`, read the tables in psql
   - [x] Step 2 — `interrupt()` in a subgraph → kill the process → resume with `Command({ resume })`
   - [x] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
-        commit → observe the duplicate on resume, then fix it
+        commit → observe the duplicate on resume, then fix it (unique constraint,
+        and confirmed `durability: "sync"` alone doesn't fix it either)
   - [ ] Step 4 — `getStateHistory()` → `updateState()` fork → resume
   - [ ] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`
         means in the work app

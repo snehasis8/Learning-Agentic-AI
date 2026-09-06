@@ -1,7 +1,8 @@
 # Module 2.5 — Durable State (Postgres checkpointer): Q&A Reference
 
-> Step 1 of 5 in the durable-state block. Steps 2–5 (crash-and-resume, duplicate
-> writes, forking history, thread isolation) append to this file as they land.
+> Step 1 of 5 in the durable-state block. Continues in
+> `06-interrupt-in-subgraph-qa.md` (step 2) and
+> `07-side-effects-idempotency-qa.md` (step 3).
 
 ---
 
@@ -49,19 +50,19 @@ This is the fact to have in hand before reasoning about checkpoint-table growth 
 **Q: What is `checkpoint_writes` for?**  
 A: Pending writes — what a **task** produced, recorded against the checkpoint it started from, keyed by `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`.
 
-They matter when a super-step runs several nodes and one fails: the nodes that succeeded already have their writes on disk, so the retry doesn't re-run them. In a single-node graph you'll barely see them; they earn their keep in steps 2–3 of this block.
+They matter when a super-step runs several nodes and one fails: the nodes that succeeded already have their writes on disk, so the retry doesn't re-run them. In a single-node graph you'll barely see them; they earn their keep in `07-side-effects-idempotency.ts`.
 
 ---
 
 **Q: What are the transaction boundaries?**  
 A: One super-step = one transaction. `put()` opens `BEGIN`, upserts every blob, upserts the checkpoint row, then `COMMIT` (rolling back on any error). `putWrites()` does the same for pending writes.
 
-So a checkpoint is all-or-nothing. **But** that transaction covers only the checkpoint — never the side effects your node performed (the email, the Elastic index, the payment). That gap is exactly step 3 of this block, and it's where production systems send the same email twice.
+So a checkpoint is all-or-nothing. **But** that transaction covers only the checkpoint — never the side effects your node performed (the email, the Elastic index, the payment). That gap is exactly `07-side-effects-idempotency.ts`, and it's where production systems send the same email twice.
 
 ---
 
 **Q: What is `checkpoint_ns` and why is it always empty here?**  
-A: The checkpoint **namespace** — `''` for the root graph, non-empty for a subgraph's own checkpoints. It's part of the primary key in all three tables. It stays blank until step 2 introduces a subgraph, and then it's how you tell parent state from child state.
+A: The checkpoint **namespace** — `''` for the root graph, non-empty for a subgraph's own checkpoints. It's part of the primary key in all three tables. It stays blank until `06-interrupt-in-subgraph.ts` introduces a subgraph, and then it's how you tell parent state from child state.
 
 ---
 
@@ -118,50 +119,6 @@ Concretely, from a real run:
 Rows 1–2 share one `task_id`: the `START` step has two jobs in one super-step — seed the state *and* tell the engine which node runs next — so it writes to two channels. The `llm` node's task only writes to `messages`; it doesn't write a `branch:to:END` signal, because `END` is a terminal sentinel with nothing downstream left to trigger.
 
 General rule: a task writes one row per channel it touches. A node that fans out to several parallel next-nodes would write several `branch:to:X` rows under one `task_id`, in the same super-step.
-
----
-
-## Step 2 — interrupt() inside a subgraph, across a restart
-
-**Q: Does a subgraph need its own checkpointer to use `interrupt()`?**  
-A: No — and it shouldn't have one. A subgraph is compiled *without* a checkpointer. When it runs as a node inside a parent that has one, it checkpoints through that same saver. `interrupt()` doesn't care which graph called it; it stops the **whole run**, parent included, and persists everything through whichever checkpointer the top-level graph was compiled with.
-
----
-
-**Q: What does `checkpoint_ns` actually look like for a subgraph, and why does it need `task_id` in it?**  
-A: `''` for the root graph's own steps; `'<nodeName>:<taskId>'` (e.g. `review:7be4e7dd-...`) for the subgraph's internal steps. The `task_id` suffix matters the moment a node runs more than once in the same thread — without it, two invocations of the same subgraph node would collide on the same namespace and their checkpoint chains would tangle together. `checkpoint_ns` is part of the primary key in all three tables, so parent rows and subgraph rows coexist under one `thread_id` without special-casing.
-
----
-
-**Q: What made this a "shared state" subgraph rather than the harder variant?**  
-A: The parent's state schema is a strict superset of the subgraph's — same channel names (`question`, `approved`), same types. That's what makes `.addNode("review", reviewSubgraph)` legal with zero translation code: LangGraph just reads/writes the matching channels directly. The other variant — different schemas needing an explicit mapping function at the call site — is 4.2's problem, not this one's.
-
----
-
-**Q: In Part 6, why does resuming show *two* `review:<task_id>` rows with `source=loop` instead of one?**  
-A: The interrupted run left the subgraph's `askHuman` step checkpointed once (`source=input` seeds it, `source=loop` records it having run and hit `interrupt()`). Resuming with `Command({ resume })` re-enters that same subgraph checkpoint, and `askHuman` produces its actual return value this time — a second `loop` checkpoint in the same namespace, chained by `parent_checkpoint_id`. The parent then advances past `review` into `askLLM`, which is why two new root-namespace (`ns=""`) rows appear afterward.
-
----
-
-## Step 3 — the side-effect gap: crash after a write, before the checkpoint
-
-**Q: You already knew "the checkpoint commit doesn't cover your side effects" from Step 1. What did actually forcing the crash add?**  
-A: Precision about *when* durability actually happens. The assumption going in was "there's a checkpoint committed right before each node runs, so a crash inside the node rolls back to just before it." That's true for a graph with real branching, but for a plain linear `START -> refund -> END` edge, LangGraph fuses `__start__`'s dispatch and `refund`'s execution into **one superstep** with no checkpoint commit in between — confirmed by querying the raw `checkpoints` row after a real crash: `channel_versions` was `{"__start__": 1}` only, nothing from `refund` folded in at all. So the crash didn't roll back to "input received, about to run refund" — it rolled back to "input received, full stop." The side effect had already executed and committed for real; the graph had committed nothing.
-
----
-
-**Q: Why doesn't checking `state.refunded` before refunding again fix this?**  
-A: Because the crash is *defined* as happening before anything durable could record that the refund happened. `refunded: true` only becomes real once the node returns and the checkpoint commits — and the whole scenario is "the node never got to return." No matter how you order the state update relative to the effect *inside the node*, if the crash lands between the effect and the return, the flag never made it to disk. A guard living inside the graph's own state cannot close a gap defined as "before state gets saved."
-
----
-
-**Q: What closes it, and why does that work when a state flag doesn't?**  
-A: A uniqueness guarantee in the side-effect system itself, that existed **before either attempt started** — here, `order_id TEXT PRIMARY KEY` on `refund_log_v2`, with `INSERT ... ON CONFLICT (order_id) DO NOTHING`. It works because it doesn't depend on anything the crashing process was supposed to remember; the constraint is enforced by Postgres regardless of which process, or how many attempts, try to insert the same key. The general shape: pick a business idempotency key that's stable across retries (an order id, a request id, an explicit key you mint once and persist *before* the risky step), and make the side-effect system itself reject the duplicate — don't try to make the crash window smaller, close it structurally.
-
----
-
-**Q: Why does a crash on `THREAD_ID_INTERRUPT` (Part 6) resume cleanly with full history, but a crash mid-`refund` (Part 8) loses everything from that attempt?**  
-A: `interrupt()` is a *deliberate, planned* pause — the graph reaches it, `interrupt()` itself only returns control after LangGraph has finished persisting the checkpoint for that step. A hard `process.exit()` is not a planned handoff at all; it kills the process regardless of what's mid-flight, including a superstep that hasn't reached its own commit yet. Same checkpointer, same tables — the difference is entirely about *whether the run reached a point that guarantees a commit* before losing control, not about the mechanism being different.
 
 ---
 

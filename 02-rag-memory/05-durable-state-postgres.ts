@@ -23,27 +23,21 @@
  * Run:   npx tsx 02-rag-memory/05-durable-state-postgres.ts
  *        ...then run it AGAIN. The second run is the whole point.
  * Reset: npx tsx 02-rag-memory/05-durable-state-postgres.ts --reset
+ *
+ * Continues in:
+ *   06-interrupt-in-subgraph.ts     — step 2, interrupt() inside a subgraph
+ *   07-side-effects-idempotency.ts  — step 3, the crash-duplicate-write gap
  */
 
 import "dotenv/config";
-import {
-  StateGraph, MessagesAnnotation, Annotation, START, END, interrupt, Command,
-} from "@langchain/langgraph";
-import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
-import pg from "pg";
+import { StateGraph, MessagesAnnotation, START, END } from "@langchain/langgraph";
+import { HumanMessage } from "@langchain/core/messages";
 import { llm } from "../lib/llm.js";
-
-const PG_URL =
-  process.env.POSTGRES_URL ?? "postgresql://postgres:postgres@localhost:5432/langgraph";
+import { checkpointer, pool, deleteThreads, closeAll } from "./_pg.js";
 
 // Same idea as 3.5's "user-42". Keep it fixed so re-running the script lands on
 // the SAME conversation — that is what makes the durability visible.
 const THREAD_ID = "pg-demo-1";
-const THREAD_ID_2 = "pg-demo-2"; // reserved for step 5 — two threads, isolation
-const THREAD_ID_INTERRUPT = "pg-demo-interrupt-1";
-const THREAD_ID_CRASH = "pg-demo-crash-1";
-const THREAD_ID_IDEMPOTENT = "pg-demo-idempotent-1";
 
 // =============================================================================
 // PART 1 — The swap
@@ -59,8 +53,6 @@ const THREAD_ID_IDEMPOTENT = "pg-demo-idempotent-1";
 // never learns which implementation it got. THAT is why 3.5 could honestly call
 // this "a one-line swap" — you are now cashing that cheque.
 
-const checkpointer = PostgresSaver.fromConnString(PG_URL);
-
 async function callModel(state: typeof MessagesAnnotation.State) {
   const response = await llm.invoke(state.messages);
   return { messages: [response] };
@@ -71,10 +63,6 @@ const graph = new StateGraph(MessagesAnnotation)
   .addEdge(START, "llm")
   .addEdge("llm", END)
   .compile({ checkpointer });
-
-// A second connection, purely so you can read the tables yourself. The saver
-// keeps its own private pool; nothing here reaches into it.
-const pool = new pg.Pool({ connectionString: PG_URL });
 
 // =============================================================================
 // PART 2 — What setup() creates
@@ -157,8 +145,8 @@ async function readTheTables() {
   // --- checkpoints: one row per super-step -----------------------------------
   // checkpoint_id is a UUIDv6 — time-ordered, so ORDER BY is chronological.
   // parent_checkpoint_id chains them into a linked list. Walking that list
-  // backwards is exactly what getStateHistory() does, and forking it (step 4)
-  // is what makes time travel a branch rather than an overwrite.
+  // backwards is exactly what getStateHistory() does, and forking it is what
+  // makes time travel a branch rather than an overwrite.
   const cps = await pool.query(`
     SELECT checkpoint_id, parent_checkpoint_id, checkpoint_ns,
            metadata->>'source' AS source, metadata->>'step' AS step
@@ -212,8 +200,8 @@ async function readTheTables() {
   // started from, keyed by (checkpoint_id, task_id, idx). They matter when a
   // super-step has several nodes and one of them fails: the ones that succeeded
   // already have their writes on disk, so the retry doesn't re-run them. In a
-  // one-node graph like this you'll see very few. Step 2 and step 3 of this
-  // block are where they start to earn their keep.
+  // one-node graph like this you'll see very few. 07 is where they start to
+  // earn their keep.
 
   console.log(`
    Now go look yourself — the SQL is the lesson:
@@ -233,295 +221,8 @@ async function readTheTables() {
 
 async function reset() {
   console.log("\n=== --reset: deleting thread", THREAD_ID, "===");
-  await checkpointer.deleteThread(THREAD_ID);
-  await checkpointer.deleteThread(THREAD_ID_INTERRUPT);
-  await checkpointer.deleteThread(THREAD_ID_CRASH);
-  await checkpointer.deleteThread(THREAD_ID_IDEMPOTENT);
-  await ensureSideEffectTable();
-  await ensureIdempotentTable();
-  await pool.query(`DELETE FROM refund_log WHERE order_id = 'R-001'`);
-  await pool.query(`DELETE FROM refund_log_v2 WHERE order_id = 'R-002'`);
-  console.log("   gone from all three tables (+ the two demo side-effect tables). Next run starts fresh.");
-}
-
-// =============================================================================
-// STEP 2 — PART 6: interrupt() inside a SUBGRAPH, across a process restart
-// =============================================================================
-// Part 3 proved MESSAGES survive a restart. This proves something sharper: a
-// PAUSE survives one — including a pause raised from inside a subgraph, which
-// is the first time `checkpoint_ns` in Part 4's table stops being ''.
-//
-// The subgraph: one node, asking a human whether the LLM should even see this
-// question. It is compiled WITHOUT a checkpointer of its own — a subgraph
-// never owns one. When it runs as a node inside a parent that HAS one, it
-// checkpoints through that same saver, and LangGraph keeps "the parent's
-// step 0" and "the subgraph's step 0" apart using checkpoint_ns. This is the
-// "shared state" style of subgraph (same channel names on both sides) — the
-// simplest composition there is. 4.2 covers the other one (mapped/transformed
-// state, different schemas) properly; this is only enough to make checkpoint_ns
-// stop being theoretical.
-
-const ReviewState = Annotation.Root({
-  question: Annotation<string>,
-  approved: Annotation<boolean>,
-});
-
-function askHuman(state: typeof ReviewState.State) {
-  // Runs inside the SUBGRAPH. interrupt() doesn't care that it isn't the top
-  // level graph — it stops the whole run, parent included, and persists it.
-  const decision = interrupt({ question: `Let the LLM answer: "${state.question}"?` });
-  return { approved: decision === "approve" };
-}
-
-const reviewSubgraph = new StateGraph(ReviewState)
-  .addNode("askHuman", askHuman)
-  .addEdge(START, "askHuman")
-  .addEdge("askHuman", END)
-  .compile(); // <- no checkpointer passed. See note above.
-
-// The PARENT's state is a superset of the subgraph's: it has `messages` (for
-// the LLM turn) PLUS the exact `question`/`approved` channels the subgraph
-// reads and writes. Same names, same types — that's what makes
-// `.addNode("review", reviewSubgraph)` legal with zero mapping code.
-const ParentState = Annotation.Root({
-  ...MessagesAnnotation.spec,
-  question: Annotation<string>,
-  approved: Annotation<boolean>,
-});
-
-async function askLLM(state: typeof ParentState.State) {
-  if (!state.approved) {
-    return { messages: [new AIMessage("Blocked by reviewer — not answered.")] };
-  }
-  const response = await llm.invoke([new HumanMessage(state.question)]);
-  return { messages: [response] };
-}
-
-// Same `checkpointer` instance as Part 1's graph — one PostgresSaver, two
-// graphs, all four tables shared and partitioned by thread_id. The checkpointer
-// is a compile-time argument, not a property of the graph.
-const parentGraph = new StateGraph(ParentState)
-  .addNode("review", reviewSubgraph)
-  .addNode("askLLM", askLLM)
-  .addEdge(START, "review")
-  .addEdge("review", "askLLM")
-  .addEdge("askLLM", END)
-  .compile({ checkpointer });
-
-async function subgraphInterruptAcrossProcesses() {
-  console.log("\n=== PART 6: interrupt() inside a subgraph, across a restart ===");
-  const config = { configurable: { thread_id: THREAD_ID_INTERRUPT } };
-  const snap = await parentGraph.getState(config);
-
-  if (Object.keys(snap.values).length === 0) {
-    console.log("   -> first run. Asking a question that needs review first.");
-    const paused = await parentGraph.invoke(
-      { question: "What is our refund policy?" },
-      config,
-    );
-    console.log("   interrupt payload:", JSON.stringify((paused as any).__interrupt__?.[0]?.value));
-    console.log("   paused at node(s):", (await parentGraph.getState(config)).next);
-    console.log("   ✅ paused and persisted. NOW KILL THIS AND RUN THE SCRIPT AGAIN.");
-  } else if (snap.next.length > 0) {
-    console.log("   -> a PREVIOUS process left this paused. Resuming with Command({ resume }).");
-    console.log("      note: nothing here shared memory with that process — just PG_URL.");
-    const done = await parentGraph.invoke(new Command({ resume: "approve" }), config);
-    console.log("   approved:", done.approved);
-    console.log("   answer:", String(done.messages.at(-1)?.content).slice(0, 150));
-  } else {
-    console.log("   -> already resolved. Answer was:",
-      String(snap.values.messages.at(-1)?.content).slice(0, 150));
-  }
-}
-
-// =============================================================================
-// STEP 2 — PART 7: checkpoint_ns, no longer blank
-// =============================================================================
-async function readNamespaces() {
-  console.log("\n=== PART 7: checkpoint_ns for a subgraph ===");
-  const { rows } = await pool.query(`
-    SELECT checkpoint_ns, checkpoint_id, parent_checkpoint_id, metadata->>'source' AS source
-    FROM checkpoints WHERE thread_id = $1
-    ORDER BY checkpoint_id`, [THREAD_ID_INTERRUPT]);
-
-  for (const r of rows) {
-    console.log(`   ns=${JSON.stringify(r.checkpoint_ns).padEnd(24)}` +
-      ` source=${String(r.source).padEnd(6)} parent=${r.parent_checkpoint_id ? "yes" : "— (root)"}`);
-  }
-  // The root graph's own steps (START -> review -> askLLM -> END) show ns=''.
-  // The subgraph's internal steps (START -> askHuman -> END, run WHILE the
-  // parent is sitting at its "review" step) show a non-empty ns like
-  // 'review:<task_id>'. Same thread_id, same three tables — checkpoint_ns is
-  // the only thing keeping "parent's step 0" and "subgraph's step 0" apart.
-}
-
-// =============================================================================
-// STEP 3 — PART 8: the side-effect gap, made real (no idempotency yet)
-// =============================================================================
-// Production note 3 (below) has said it in words since Part 1: one super-step
-// is one transaction, and that transaction covers the CHECKPOINT — never the
-// side effect your node just performed. This manufactures that exact gap: a
-// real INSERT into Postgres, committed instantly, followed by a hard
-// `process.exit()` before this step's checkpoint is written. Same as a pod
-// getting OOM-killed between "the email sent" and "the run recorded that".
-//
-// The crash only fires ONCE per order — checked by looking at whether the
-// side effect already exists — so the SECOND run is free to finish and show
-// you the damage instead of crash-looping forever.
-
-const RefundState = Annotation.Root({
-  orderId: Annotation<string>,
-  amountCents: Annotation<number>,
-  refunded: Annotation<boolean>,
-});
-
-async function ensureSideEffectTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS refund_log (
-      id SERIAL PRIMARY KEY,
-      order_id TEXT NOT NULL,
-      amount_cents INT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )`);
-}
-
-async function processRefundNaive(state: typeof RefundState.State) {
-  const { rows } = await pool.query<{ n: number }>(
-    "SELECT count(*)::int AS n FROM refund_log WHERE order_id = $1", [state.orderId],
-  );
-  const alreadyAttempted = rows[0].n > 0;
-
-  // THE SIDE EFFECT. Real, committed the instant it runs — Postgres has no
-  // idea a LangGraph checkpoint for this step doesn't exist yet.
-  await pool.query(
-    "INSERT INTO refund_log (order_id, amount_cents) VALUES ($1, $2)",
-    [state.orderId, state.amountCents],
-  );
-  console.log(`   💸 refunded ${state.amountCents}c for ${state.orderId}` +
-    ` (attempt #${rows[0].n + 1}, side effect committed)`);
-
-  if (!alreadyAttempted) {
-    // Everything above already happened for real. Nothing below — including
-    // this node's own return, which is what would let the checkpoint record
-    // "refund done" — ever runs on this attempt.
-    console.log("   💥 simulating a crash right here — before the checkpoint commits");
-    process.exit(1);
-  }
-  return { refunded: true };
-}
-
-const naiveGraph = new StateGraph(RefundState)
-  .addNode("refund", processRefundNaive)
-  .addEdge(START, "refund")
-  .addEdge("refund", END)
-  .compile({ checkpointer });
-
-async function naiveCrashAndDuplicate() {
-  console.log("\n=== PART 8: crash after the write, before the checkpoint ===");
-  await ensureSideEffectTable();
-  const config = { configurable: { thread_id: THREAD_ID_CRASH } };
-  const snap = await naiveGraph.getState(config);
-  // NOT `Object.keys(snap.values).length === 0` — this graph's edge is a plain
-  // unconditional START -> refund, so LangGraph fuses __start__ and refund's
-  // dispatch into ONE superstep with no checkpoint commit in between. Crashing
-  // inside refund rolls all the way back to the raw input marker, whose
-  // `values` are legitimately {} even though the thread WAS invoked. The only
-  // honest "does this thread exist at all" check is whether ANY checkpoint
-  // was ever written for it.
-  const hasCheckpoint = snap.config.configurable?.checkpoint_id !== undefined;
-
-  if (!hasCheckpoint) {
-    console.log("   -> first run. This WILL crash on purpose. Run the script again after.");
-    await naiveGraph.invoke({ orderId: "R-001", amountCents: 4200 }, config);
-    // unreachable on this attempt — process.exit() above already ended it
-  } else if (snap.next.length > 0) {
-    console.log("   -> resuming. Whatever superstep was mid-flight never committed, so");
-    console.log("      LangGraph replays from the last checkpoint that DID land — here,");
-    console.log("      that's before 'refund' ran at all. Resume with null = continue.");
-    await naiveGraph.invoke(null, config);
-    const { rows } = await pool.query(
-      "SELECT id, amount_cents, created_at FROM refund_log WHERE order_id = $1 ORDER BY id",
-      ["R-001"],
-    );
-    console.log(`   refund_log rows for R-001: ${rows.length} (bug: expected 1)`);
-    for (const r of rows) console.log("    ", r);
-  } else {
-    console.log("   -> already resolved from a prior run. --reset to see the crash again.");
-  }
-}
-
-// =============================================================================
-// STEP 3 — PART 9: the fix — a unique constraint, not a state flag
-// =============================================================================
-// The tempting fix is "check `state.refunded` before refunding again". It
-// doesn't work HERE: the crash happens before that flag could ever be
-// checkpointed, so the retry sees `refunded` still unset no matter what — the
-// exact window we're simulating is defined as "before anything durable says
-// this happened". Nothing living inside the graph's own state can close it.
-//
-// What CAN close it: a uniqueness guarantee that existed in the side-effect
-// system BEFORE either attempt started. Same node, same crash point, same
-// retry — but the database now refuses the second row outright.
-
-async function ensureIdempotentTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS refund_log_v2 (
-      order_id TEXT PRIMARY KEY,
-      amount_cents INT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )`);
-}
-
-async function processRefundIdempotent(state: typeof RefundState.State) {
-  const { rows } = await pool.query<{ n: number }>(
-    "SELECT count(*)::int AS n FROM refund_log_v2 WHERE order_id = $1", [state.orderId],
-  );
-  const alreadyAttempted = rows[0].n > 0;
-
-  const result = await pool.query(
-    `INSERT INTO refund_log_v2 (order_id, amount_cents) VALUES ($1, $2)
-     ON CONFLICT (order_id) DO NOTHING RETURNING order_id`,
-    [state.orderId, state.amountCents],
-  );
-  console.log(result.rowCount === 1
-    ? "   💸 refund inserted for real"
-    : "   ♻️  duplicate suppressed by the unique constraint — already refunded");
-
-  if (!alreadyAttempted) {
-    console.log("   💥 simulating the SAME crash, at the SAME point");
-    process.exit(1);
-  }
-  return { refunded: true };
-}
-
-const idempotentGraph = new StateGraph(RefundState)
-  .addNode("refund", processRefundIdempotent)
-  .addEdge(START, "refund")
-  .addEdge("refund", END)
-  .compile({ checkpointer });
-
-async function idempotentCrashAndResume() {
-  console.log("\n=== PART 9: same crash, fixed with a unique constraint ===");
-  await ensureIdempotentTable();
-  const config = { configurable: { thread_id: THREAD_ID_IDEMPOTENT } };
-  const snap = await idempotentGraph.getState(config);
-  const hasCheckpoint = snap.config.configurable?.checkpoint_id !== undefined;
-
-  if (!hasCheckpoint) {
-    console.log("   -> first run. Will crash right after the write, same as Part 8.");
-    await idempotentGraph.invoke({ orderId: "R-002", amountCents: 4200 }, config);
-  } else if (snap.next.length > 0) {
-    console.log("   -> resuming. The node reruns — LangGraph still can't know better —");
-    console.log("      but the row it's trying to insert already exists.");
-    await idempotentGraph.invoke(null, config);
-    const { rows } = await pool.query(
-      "SELECT order_id, amount_cents, created_at FROM refund_log_v2 WHERE order_id = $1",
-      ["R-002"],
-    );
-    console.log(`   refund_log_v2 rows for R-002: ${rows.length} (fixed — always 1)`);
-  } else {
-    console.log("   -> already resolved from a prior run. --reset to see the crash again.");
-  }
+  await deleteThreads(THREAD_ID);
+  console.log("   gone from all three tables. Next run starts fresh.");
 }
 
 // -----------------------------------------------------------------------------
@@ -537,7 +238,7 @@ async function idempotentCrashAndResume() {
 // 3. ONE SUPER-STEP = ONE TRANSACTION. put() writes blobs and the checkpoint row
 //    inside a single BEGIN/COMMIT. So a checkpoint is all-or-nothing — but the
 //    transaction covers only the CHECKPOINT, not the side effects your node just
-//    performed. That gap is step 3 of this block, and it is where real systems
+//    performed. That gap is 07's whole subject, and it is where real systems
 //    produce duplicate emails.
 // 4. GROWTH IS REAL NOW. In memory, unbounded state was a leak you restarted
 //    away. On disk it is a bill and a slow query. You need a retention policy —
@@ -545,9 +246,8 @@ async function idempotentCrashAndResume() {
 // 5. PII SITS IN checkpoint_blobs AS BYTEA. Serialised message content, plain.
 //    Encrypt at rest, keep it out of logs and backups you don't control, and
 //    make sure "delete my data" reaches deleteThread().
-// 6. `checkpoint_ns` is '' for the root graph and non-empty for subgraphs. It is
-//    part of every primary key here. Step 2 is where it stops being a blank
-//    column you ignore.
+// 6. `checkpoint_ns` is '' for the root graph and non-empty for subgraphs — see
+//    06 for the first time it stops being a blank column you ignore.
 //
 // -----------------------------------------------------------------------------
 // 🎯 THE THREE INTERVIEW QUESTIONS
@@ -568,14 +268,9 @@ async function main() {
       return;
     }
 
-    //  await whatSetupCreated();
-    // await acrossProcesses();
-    // await readTheTables();
-    // await subgraphInterruptAcrossProcesses();
-    // await readNamespaces();
-
-    // await naiveCrashAndDuplicate();
-    await idempotentCrashAndResume();
+    await whatSetupCreated();
+    await acrossProcesses();
+    await readTheTables();
 
     console.log("\n=============================================================");
     console.log("RECAP");
@@ -586,18 +281,10 @@ async function main() {
     console.log("  checkpoint_writes = a task's writes, for resume without re-running");
     console.log("  one super-step    = one transaction (the checkpoint — not your side effects)");
     console.log("  deleteThread()    = your retention + GDPR story");
-    console.log("  a subgraph never owns a checkpointer — it runs through the parent's");
-    console.log("  checkpoint_ns tells parent steps and subgraph steps apart, same tables");
-    console.log("  interrupt() inside a subgraph pauses the WHOLE run, parent included");
-    console.log("  crash after a side effect, before the checkpoint  -> the retry re-runs it");
-    console.log("  a state flag can't close that gap — the crash is DEFINED as before it saves");
-    console.log("  a unique constraint that predates both attempts CAN close it");
-    console.log("  NEXT (step 4)     : getStateHistory() -> updateState() fork -> resume");
+    console.log("  NEXT (step 2)     : 06-interrupt-in-subgraph.ts");
     console.log("=============================================================");
   } finally {
-    // Both pools must be closed or the process will not exit.
-    await checkpointer.end();
-    await pool.end();
+    await closeAll();
   }
 }
 
