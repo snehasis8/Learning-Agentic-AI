@@ -42,6 +42,8 @@ const PG_URL =
 const THREAD_ID = "pg-demo-1";
 const THREAD_ID_2 = "pg-demo-2"; // reserved for step 5 — two threads, isolation
 const THREAD_ID_INTERRUPT = "pg-demo-interrupt-1";
+const THREAD_ID_CRASH = "pg-demo-crash-1";
+const THREAD_ID_IDEMPOTENT = "pg-demo-idempotent-1";
 
 // =============================================================================
 // PART 1 — The swap
@@ -233,7 +235,13 @@ async function reset() {
   console.log("\n=== --reset: deleting thread", THREAD_ID, "===");
   await checkpointer.deleteThread(THREAD_ID);
   await checkpointer.deleteThread(THREAD_ID_INTERRUPT);
-  console.log("   gone from all three tables. Next run starts fresh.");
+  await checkpointer.deleteThread(THREAD_ID_CRASH);
+  await checkpointer.deleteThread(THREAD_ID_IDEMPOTENT);
+  await ensureSideEffectTable();
+  await ensureIdempotentTable();
+  await pool.query(`DELETE FROM refund_log WHERE order_id = 'R-001'`);
+  await pool.query(`DELETE FROM refund_log_v2 WHERE order_id = 'R-002'`);
+  console.log("   gone from all three tables (+ the two demo side-effect tables). Next run starts fresh.");
 }
 
 // =============================================================================
@@ -347,6 +355,175 @@ async function readNamespaces() {
   // the only thing keeping "parent's step 0" and "subgraph's step 0" apart.
 }
 
+// =============================================================================
+// STEP 3 — PART 8: the side-effect gap, made real (no idempotency yet)
+// =============================================================================
+// Production note 3 (below) has said it in words since Part 1: one super-step
+// is one transaction, and that transaction covers the CHECKPOINT — never the
+// side effect your node just performed. This manufactures that exact gap: a
+// real INSERT into Postgres, committed instantly, followed by a hard
+// `process.exit()` before this step's checkpoint is written. Same as a pod
+// getting OOM-killed between "the email sent" and "the run recorded that".
+//
+// The crash only fires ONCE per order — checked by looking at whether the
+// side effect already exists — so the SECOND run is free to finish and show
+// you the damage instead of crash-looping forever.
+
+const RefundState = Annotation.Root({
+  orderId: Annotation<string>,
+  amountCents: Annotation<number>,
+  refunded: Annotation<boolean>,
+});
+
+async function ensureSideEffectTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refund_log (
+      id SERIAL PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      amount_cents INT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+}
+
+async function processRefundNaive(state: typeof RefundState.State) {
+  const { rows } = await pool.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM refund_log WHERE order_id = $1", [state.orderId],
+  );
+  const alreadyAttempted = rows[0].n > 0;
+
+  // THE SIDE EFFECT. Real, committed the instant it runs — Postgres has no
+  // idea a LangGraph checkpoint for this step doesn't exist yet.
+  await pool.query(
+    "INSERT INTO refund_log (order_id, amount_cents) VALUES ($1, $2)",
+    [state.orderId, state.amountCents],
+  );
+  console.log(`   💸 refunded ${state.amountCents}c for ${state.orderId}` +
+    ` (attempt #${rows[0].n + 1}, side effect committed)`);
+
+  if (!alreadyAttempted) {
+    // Everything above already happened for real. Nothing below — including
+    // this node's own return, which is what would let the checkpoint record
+    // "refund done" — ever runs on this attempt.
+    console.log("   💥 simulating a crash right here — before the checkpoint commits");
+    process.exit(1);
+  }
+  return { refunded: true };
+}
+
+const naiveGraph = new StateGraph(RefundState)
+  .addNode("refund", processRefundNaive)
+  .addEdge(START, "refund")
+  .addEdge("refund", END)
+  .compile({ checkpointer });
+
+async function naiveCrashAndDuplicate() {
+  console.log("\n=== PART 8: crash after the write, before the checkpoint ===");
+  await ensureSideEffectTable();
+  const config = { configurable: { thread_id: THREAD_ID_CRASH } };
+  const snap = await naiveGraph.getState(config);
+  // NOT `Object.keys(snap.values).length === 0` — this graph's edge is a plain
+  // unconditional START -> refund, so LangGraph fuses __start__ and refund's
+  // dispatch into ONE superstep with no checkpoint commit in between. Crashing
+  // inside refund rolls all the way back to the raw input marker, whose
+  // `values` are legitimately {} even though the thread WAS invoked. The only
+  // honest "does this thread exist at all" check is whether ANY checkpoint
+  // was ever written for it.
+  const hasCheckpoint = snap.config.configurable?.checkpoint_id !== undefined;
+
+  if (!hasCheckpoint) {
+    console.log("   -> first run. This WILL crash on purpose. Run the script again after.");
+    await naiveGraph.invoke({ orderId: "R-001", amountCents: 4200 }, config);
+    // unreachable on this attempt — process.exit() above already ended it
+  } else if (snap.next.length > 0) {
+    console.log("   -> resuming. Whatever superstep was mid-flight never committed, so");
+    console.log("      LangGraph replays from the last checkpoint that DID land — here,");
+    console.log("      that's before 'refund' ran at all. Resume with null = continue.");
+    await naiveGraph.invoke(null, config);
+    const { rows } = await pool.query(
+      "SELECT id, amount_cents, created_at FROM refund_log WHERE order_id = $1 ORDER BY id",
+      ["R-001"],
+    );
+    console.log(`   refund_log rows for R-001: ${rows.length} (bug: expected 1)`);
+    for (const r of rows) console.log("    ", r);
+  } else {
+    console.log("   -> already resolved from a prior run. --reset to see the crash again.");
+  }
+}
+
+// =============================================================================
+// STEP 3 — PART 9: the fix — a unique constraint, not a state flag
+// =============================================================================
+// The tempting fix is "check `state.refunded` before refunding again". It
+// doesn't work HERE: the crash happens before that flag could ever be
+// checkpointed, so the retry sees `refunded` still unset no matter what — the
+// exact window we're simulating is defined as "before anything durable says
+// this happened". Nothing living inside the graph's own state can close it.
+//
+// What CAN close it: a uniqueness guarantee that existed in the side-effect
+// system BEFORE either attempt started. Same node, same crash point, same
+// retry — but the database now refuses the second row outright.
+
+async function ensureIdempotentTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refund_log_v2 (
+      order_id TEXT PRIMARY KEY,
+      amount_cents INT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+}
+
+async function processRefundIdempotent(state: typeof RefundState.State) {
+  const { rows } = await pool.query<{ n: number }>(
+    "SELECT count(*)::int AS n FROM refund_log_v2 WHERE order_id = $1", [state.orderId],
+  );
+  const alreadyAttempted = rows[0].n > 0;
+
+  const result = await pool.query(
+    `INSERT INTO refund_log_v2 (order_id, amount_cents) VALUES ($1, $2)
+     ON CONFLICT (order_id) DO NOTHING RETURNING order_id`,
+    [state.orderId, state.amountCents],
+  );
+  console.log(result.rowCount === 1
+    ? "   💸 refund inserted for real"
+    : "   ♻️  duplicate suppressed by the unique constraint — already refunded");
+
+  if (!alreadyAttempted) {
+    console.log("   💥 simulating the SAME crash, at the SAME point");
+    process.exit(1);
+  }
+  return { refunded: true };
+}
+
+const idempotentGraph = new StateGraph(RefundState)
+  .addNode("refund", processRefundIdempotent)
+  .addEdge(START, "refund")
+  .addEdge("refund", END)
+  .compile({ checkpointer });
+
+async function idempotentCrashAndResume() {
+  console.log("\n=== PART 9: same crash, fixed with a unique constraint ===");
+  await ensureIdempotentTable();
+  const config = { configurable: { thread_id: THREAD_ID_IDEMPOTENT } };
+  const snap = await idempotentGraph.getState(config);
+  const hasCheckpoint = snap.config.configurable?.checkpoint_id !== undefined;
+
+  if (!hasCheckpoint) {
+    console.log("   -> first run. Will crash right after the write, same as Part 8.");
+    await idempotentGraph.invoke({ orderId: "R-002", amountCents: 4200 }, config);
+  } else if (snap.next.length > 0) {
+    console.log("   -> resuming. The node reruns — LangGraph still can't know better —");
+    console.log("      but the row it's trying to insert already exists.");
+    await idempotentGraph.invoke(null, config);
+    const { rows } = await pool.query(
+      "SELECT order_id, amount_cents, created_at FROM refund_log_v2 WHERE order_id = $1",
+      ["R-002"],
+    );
+    console.log(`   refund_log_v2 rows for R-002: ${rows.length} (fixed — always 1)`);
+  } else {
+    console.log("   -> already resolved from a prior run. --reset to see the crash again.");
+  }
+}
+
 // -----------------------------------------------------------------------------
 // PRODUCTION NOTES
 // -----------------------------------------------------------------------------
@@ -394,9 +571,11 @@ async function main() {
     //  await whatSetupCreated();
     // await acrossProcesses();
     // await readTheTables();
+    // await subgraphInterruptAcrossProcesses();
+    // await readNamespaces();
 
-    await subgraphInterruptAcrossProcesses();
-    await readNamespaces();
+    // await naiveCrashAndDuplicate();
+    await idempotentCrashAndResume();
 
     console.log("\n=============================================================");
     console.log("RECAP");
@@ -410,7 +589,10 @@ async function main() {
     console.log("  a subgraph never owns a checkpointer — it runs through the parent's");
     console.log("  checkpoint_ns tells parent steps and subgraph steps apart, same tables");
     console.log("  interrupt() inside a subgraph pauses the WHOLE run, parent included");
-    console.log("  NEXT (step 3)     : tool writes to PG/Elastic, crash before checkpoint commit");
+    console.log("  crash after a side effect, before the checkpoint  -> the retry re-runs it");
+    console.log("  a state flag can't close that gap — the crash is DEFINED as before it saves");
+    console.log("  a unique constraint that predates both attempts CAN close it");
+    console.log("  NEXT (step 4)     : getStateHistory() -> updateState() fork -> resume");
     console.log("=============================================================");
   } finally {
     // Both pools must be closed or the process will not exit.

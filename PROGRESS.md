@@ -34,7 +34,7 @@ instead of waiting for a "week 11–12".
       renamed by the handoff. Five steps, one file.
   - [x] Step 1 — `MemorySaver` → `PostgresSaver`, `setup()`, read the tables in psql
   - [x] Step 2 — `interrupt()` in a subgraph → kill the process → resume with `Command({ resume })`
-  - [ ] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
+  - [x] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
         commit → observe the duplicate on resume, then fix it
   - [ ] Step 4 — `getStateHistory()` → `updateState()` fork → resume
   - [ ] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`

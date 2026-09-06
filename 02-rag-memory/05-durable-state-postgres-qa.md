@@ -143,6 +143,28 @@ A: The interrupted run left the subgraph's `askHuman` step checkpointed once (`s
 
 ---
 
+## Step 3 — the side-effect gap: crash after a write, before the checkpoint
+
+**Q: You already knew "the checkpoint commit doesn't cover your side effects" from Step 1. What did actually forcing the crash add?**  
+A: Precision about *when* durability actually happens. The assumption going in was "there's a checkpoint committed right before each node runs, so a crash inside the node rolls back to just before it." That's true for a graph with real branching, but for a plain linear `START -> refund -> END` edge, LangGraph fuses `__start__`'s dispatch and `refund`'s execution into **one superstep** with no checkpoint commit in between — confirmed by querying the raw `checkpoints` row after a real crash: `channel_versions` was `{"__start__": 1}` only, nothing from `refund` folded in at all. So the crash didn't roll back to "input received, about to run refund" — it rolled back to "input received, full stop." The side effect had already executed and committed for real; the graph had committed nothing.
+
+---
+
+**Q: Why doesn't checking `state.refunded` before refunding again fix this?**  
+A: Because the crash is *defined* as happening before anything durable could record that the refund happened. `refunded: true` only becomes real once the node returns and the checkpoint commits — and the whole scenario is "the node never got to return." No matter how you order the state update relative to the effect *inside the node*, if the crash lands between the effect and the return, the flag never made it to disk. A guard living inside the graph's own state cannot close a gap defined as "before state gets saved."
+
+---
+
+**Q: What closes it, and why does that work when a state flag doesn't?**  
+A: A uniqueness guarantee in the side-effect system itself, that existed **before either attempt started** — here, `order_id TEXT PRIMARY KEY` on `refund_log_v2`, with `INSERT ... ON CONFLICT (order_id) DO NOTHING`. It works because it doesn't depend on anything the crashing process was supposed to remember; the constraint is enforced by Postgres regardless of which process, or how many attempts, try to insert the same key. The general shape: pick a business idempotency key that's stable across retries (an order id, a request id, an explicit key you mint once and persist *before* the risky step), and make the side-effect system itself reject the duplicate — don't try to make the crash window smaller, close it structurally.
+
+---
+
+**Q: Why does a crash on `THREAD_ID_INTERRUPT` (Part 6) resume cleanly with full history, but a crash mid-`refund` (Part 8) loses everything from that attempt?**  
+A: `interrupt()` is a *deliberate, planned* pause — the graph reaches it, `interrupt()` itself only returns control after LangGraph has finished persisting the checkpoint for that step. A hard `process.exit()` is not a planned handoff at all; it kills the process regardless of what's mid-flight, including a superstep that hasn't reached its own commit yet. Same checkpointer, same tables — the difference is entirely about *whether the run reached a point that guarantees a commit* before losing control, not about the mechanism being different.
+
+---
+
 ## Open questions to answer at work
 
 - What does `thread_id` map to in the app — conversation, ticket, or user session?
