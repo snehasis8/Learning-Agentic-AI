@@ -41,7 +41,11 @@ instead of waiting for a "week 11–12".
   - [x] Step 3 — tool writes to PG/Elastic; crash *after* the write, *before* the checkpoint
         commit → observe the duplicate on resume, then fix it (unique constraint,
         and confirmed `durability: "sync"` alone doesn't fix it either)
-  - [ ] Step 4 — `getStateHistory()` → `updateState()` fork → resume
+  - [x] Step 4 — `getStateHistory()` → `updateState()` fork → resume
+        `08-fork-history.ts` — confirmed against the PostgresSaver source that
+        `getStateHistory()` returns ALL checkpoints for a thread merged by time,
+        not one branch's ancestry walked backwards; guarded against re-forking
+        on a second run
   - [ ] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`
         means in the work app
   - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed)

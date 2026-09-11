@@ -1,7 +1,7 @@
 # 🔥 Study Log
 
 <!-- STATS (auto-updated by `npm run focus:log` — do not edit this line by hand) -->
-**Current streak:** 2 days · **Longest streak:** 2 days · **Total sessions:** 15
+**Current streak:** 2 days · **Longest streak:** 2 days · **Total sessions:** 16
 
 > Log every study session so your streak and real pace stay accurate. Easiest way:
 > `npm run focus:log -- --minutes 45 --module 2.3 --note "basic RAG"`
@@ -11,6 +11,7 @@
 | Date | # | Module(s) worked | Minutes | Notes |
 |------|---|------------------|---------|-------|
 <!-- LOG ROWS BELOW -->
+| 2026-09-06 | 16 | 2.5 | 45 |  |
 | 2026-09-06 | 15 | 2.5 | 90 | Step 3: crashed a run after the tool's PG write but before the checkpoint commit, observed the duplicate write on resume and fixed it; started pulling the subgraph-interrupt material into its own file (06-interrupt-in-subgraph.ts) |
 | 2026-09-05 | 14 | 2.5 | 90 | Step 2: interrupt() inside a subgraph — killed the process mid-run, resumed with Command({ resume }), traced checkpoint_ns keeping parent/subgraph steps apart in the same three tables |
 | 2026-09-05 | 13 | 2.5 | 90 | PostgresSaver step 1: setup(), read checkpoints/blobs/writes raw in DBeaver, traced task_id grouping |
