@@ -29,7 +29,7 @@ instead of waiting for a "week 11–12".
 
 ### This week — the durable-state block (one script that grows each session)
 
-- [ ] **2.5** Durable state — Postgres checkpointer 👉 YOU ARE HERE
+- [ ] **2.5** Durable state — Postgres checkpointer (steps 1–5 done; exercise open)
       Was one growing file, now split for size: shared Postgres wiring lives in
       `02-rag-memory/_pg.ts`; each step is its own standalone script + qa file —
       `05-durable-state-postgres.ts` (steps 1), `06-interrupt-in-subgraph.ts`
@@ -46,9 +46,16 @@ instead of waiting for a "week 11–12".
         `getStateHistory()` returns ALL checkpoints for a thread merged by time,
         not one branch's ancestry walked backwards; guarded against re-forking
         on a second run
-  - [ ] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`
+  - [x] Step 5 — two threads in parallel; confirm isolation; decide what `thread_id`
         means in the work app
-  - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed)
+        `09-thread-isolation.ts` — cross-thread isolation is a `WHERE thread_id`
+        clause, no lock; SAME-thread concurrent invokes race (both read "latest",
+        write two children of one parent → one turn silently lost — observed);
+        raw fix = per-thread promise queue, which only works in one process.
+        Work app: thread_id = chat session id.
+  - [ ] Exercise: Chatbot with memory (in-memory AND pg-backed) 👉 YOU ARE HERE
+        Scaffold at `exercises/05-memory-chatbot.ts` (`--check` prints the expected
+        truths). Node logic, factory, and checks are yours.
 
 > Own these cold by the end of the block: checkpointer vs Store · super-step commit
 > semantics · pending writes · `checkpoint_ns` for subgraphs · retention/deletion policy.
